@@ -4,17 +4,17 @@ Orchestra conversion tools
 
 ## To build and install the tools to convert GE raw files into ISMRMRD files:
 
-1.  Define the `SDKTOP` environment variable:
+1.  Define the `SDKTOP` environment variable to be the Orchestra directory, e.g.
 
     ```bash
-    export SDKTOP=/fmrif/projects/ESE/Orchestra
+    export SDKTOP=~/orchestra-sdk-1.6-1
     ```
 
-1. Define the `ISMRMRD_HOME` AND `GE_TOOLS_HOME` variables. These specify installation location(s), e.g.
+1. Define the `ISMRMRD_HOME` to be the ISMRMRD source code directory AND `GE_TOOLS_HOME` to be the ge_to_ismrmrd source code directory. These specify installation location(s), e.g.
 
     ```bash
     export ISMRMRD_HOME=<prefix>/ismrmrd
-    export GE_TOOLS_HOME=<prefix>/ge-tools
+    export GE_TOOLS_HOME=<prefix>/ge_to_ismrmrd
     ```
 
 1.  Obtain the ISMRMRD source code:
@@ -35,7 +35,7 @@ Orchestra conversion tools
     cd ismrmrd/
     mkdir build
     cd build/
-    cmake -D CMAKE_INSTALL_PREFIX=$ISMRMRD_HOME -D HDF5_USE_STATIC_LIBRARIES=yes -D CMAKE_EXE_LINKER_FLAGS=-lpthread ..
+    cmake ..
     make install
     cd ../
     ```
@@ -52,7 +52,7 @@ Orchestra conversion tools
     cd ge_to_ismrmrd/
     mkdir build
     cd build/
-    cmake -D CMAKE_INSTALL_PREFIX=$GE_TOOLS_HOME ..
+    cmake -D OX_INSTALL_DIRECTORY=$SDKTOP ..
     make install
     cd ../
     ```
@@ -67,7 +67,7 @@ Orchestra conversion tools
 1. If customized conversion libraries are desired, the corresponding command will be:
 
    ```bash
-   pfile2ismrmrd -v -l libp2i-NIH.so -p NIH2dfastConverter -x $GE_TOOLS_HOME/share/ge-tools/config/default.xsl P12800_sample.7
+   pfile2ismrmrd -v -l libp2i-NIH.so -p NIH2dfastConverter -x $GE_TOOLS_HOME/src/ge-tools/config/default.xsl P12800_sample.7
    ```
 
    The source code that enables this example is included with these tools.  This example is a straightforward copy of the GenericConverter, but it shows how these classes can be inherited from and implemented.
