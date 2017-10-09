@@ -14,18 +14,9 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 find_package(LibXslt REQUIRED)
 find_package(LibXml2 REQUIRED)
 find_package(Ismrmrd REQUIRED)
-
 find_package(Orchestra)
-if (NOT ORCHESTRA_FOUND)
-    message(WARNING "Orchestra SDK not found. Try setting $SDKTOP environment variable")
-    return()
-endif()
 
-add_definitions(-std=c++11 ${ORCHESTRA_DEFINITIONS})
-
-if(APPLE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
-endif(APPLE)
+add_definitions(-std=c++11)
 
 
 # build C++ converter

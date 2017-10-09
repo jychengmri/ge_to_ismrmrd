@@ -24,6 +24,7 @@ set(P2I_EXE "pfile2ismrmrd")
 add_executable(${P2I_EXE} main.cpp)
 target_link_libraries(${P2I_EXE}
     ${P2I_LIB}
+    ${ORCHESTRA_LIBRARIES}
     ${ISMRMRD_LIBRARIES})
 install(TARGETS ${P2I_EXE} DESTINATION bin)
 
