@@ -73,25 +73,25 @@ std::vector<ISMRMRD::Acquisition> GenericConverter::getAcquisitions(
     std::vector<ISMRMRD::Acquisition> acqs;
 
     const GERecon::Control::ProcessingControlPointer processingControl(pfile->CreateOrchestraProcessingControl());
-    unsigned int nPhases = processingControl->Value<int>("AcquiredYRes");
-    unsigned int nEchoes = processingControl->Value<int>("NumEchoes");
-    unsigned int nChannels = pfile->ChannelCount();
+    int nPhases = processingControl->Value<int>("AcquiredYRes");
+    int nEchoes = processingControl->Value<int>("NumEchoes");
+    int nChannels = pfile->ChannelCount();
 
     // Make number of acquisitions to be converted
     acqs.resize(pfile->AcquiredSlicesPerAcq() * nEchoes * nPhases);
 
-    unsigned int acq_num = 0;
+    int acq_num = 0;
 
     // Orchestra API provides size in bytes.
     // frame_size is the number of complex points in a single channel
     // size_t frame_size = pfile->ViewSize() / pfile->SampleSize();
-    size_t frame_size = processingControl->Value<int>("AcquiredXRes");
+    int frame_size = processingControl->Value<int>("AcquiredXRes");
 
-    for (int sliceCount = 0 ; sliceCount < pfile->AcquiredSlicesPerAcq() ; sliceCount++)
+    for (int sliceCount = 0; sliceCount < pfile->AcquiredSlicesPerAcq() ; sliceCount++)
     {
-        for (int echoCount = 0 ; echoCount < nEchoes ; echoCount++)
+        for (int echoCount = 0; echoCount < nEchoes ; echoCount++)
         {
-            for (int phaseCount = 0 ; phaseCount < nPhases ; phaseCount++)
+            for (int phaseCount = 0; phaseCount < nPhases ; phaseCount++)
             {
                 // std::cout << "Processing acquisition " << acq_num
                 // << " phase count " << phaseCount << " slice count " << sliceCount << std::endl;
@@ -104,7 +104,7 @@ std::vector<ISMRMRD::Acquisition> GenericConverter::getAcquisitions(
 
                 // Get data from P-file using KSpaceData object, and copy
                 // into ISMRMRD space.
-                for (int channelCount = 0 ; channelCount < nChannels ; channelCount++)
+                for (int channelCount = 0; channelCount < nChannels ; channelCount++)
                 {
                     // VR + JAD - 2016.01.15 - looking at various schemes to stride and read in
                     // K-space data.

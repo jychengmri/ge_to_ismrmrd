@@ -29,7 +29,7 @@
 // Local
 #include "GERawConverter.h"
 #include "XMLWriter.h"
-#include "ge_tools_path.h"
+#include "GenericConverter.h"
 
 
 namespace PfileToIsmrmrd {
@@ -82,6 +82,10 @@ GERawConverter::GERawConverter(const std::string& pfilepath, bool logging)
     pfile_ = GERecon::Legacy::Pfile::Create(pfilepath,
             GERecon::Legacy::Pfile::AllAvailableAcquisitions,
             GERecon::AnonymizationPolicy(GERecon::AnonymizationPolicy::None));
+
+    converter_ = std::shared_ptr<SequenceConverter>(new GenericConverter());
+    
+    log_ << "here";
 }
 
 /**
@@ -101,15 +105,6 @@ GERawConverter::GERawConverter(void *hdr_loc, bool logging)
     log_ << "PSDName: " << psdname_ << std::endl;
 }
 */
-
-/**
- * Loads a sequence conversion plugin from full filepath
- */
-void GERawConverter::usePlugin(const std::string& filename, const std::string& classname)
-{
-    log_ << "Loading plugin: " << filename << ":" << classname << std::endl;
-    plugin_ = std::shared_ptr<Plugin>(new Plugin(filename, classname));
-}
 
 void GERawConverter::useStylesheetFilename(const std::string& filename)
 {
@@ -262,27 +257,7 @@ bool GERawConverter::trySequenceMapping(std::shared_ptr<xmlDoc> doc, xmlNodePtr 
         parameter = parameter->next;
     }
 
-    bool success = false;
-    /* check if psdname matches */
-    if (xmlStrcmp(BAD_CAST psdname.c_str(), (const xmlChar*) psdname_.c_str()) == 0) {
-        log_ << "Found matching psdname: " << psdname << std::endl;
-
-        std::string ge_tools_home(get_ge_tools_home());
-#ifdef __APPLE__
-        std::string ext = ".dylib";
-#else
-        std::string ext = ".so";
-#endif
-        libpath = ge_tools_home + "lib/" + libpath + ext;
-        stylesheet = ge_tools_home + "share/ge-tools/config/" + stylesheet;
-
-        usePlugin(libpath, classname);
-        useStylesheetFilename(stylesheet);
-        recon_config_ = std::string(reconconfig);
-        success = true;
-    }
-
-    return success;
+    return true;
 }
 
 /**
@@ -299,7 +274,8 @@ std::string GERawConverter::getIsmrmrdXMLHeader()
 
     std::string pfile_header(pfile_to_xml(pfile_));
 
-    // DEBUG: std::cout << pfile_header << std::endl;
+    // DEBUG:
+    std::cout << pfile_header << std::endl;
 
     xmlSubstituteEntitiesDefault(1);
     xmlLoadExtDtdDefaultValue = 1;
@@ -352,7 +328,7 @@ std::string GERawConverter::getIsmrmrdXMLHeader()
  */
 std::vector<ISMRMRD::Acquisition> GERawConverter::getAcquisitions(unsigned int view_num)
 {
-    return plugin_->getConverter()->getAcquisitions(pfile_.get(), view_num);
+	return converter_->getAcquisitions(pfile_.get(), view_num);
 }
 
 /**

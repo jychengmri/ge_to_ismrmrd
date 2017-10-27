@@ -20,18 +20,19 @@ endif()
 set(TOPDIR "${OX_INSTALL_DIRECTORY}/include")
 include (${TOPDIR}/recon/SDK/product.cmake)
 
-list(APPEND ORCHESTRA_LIBRARIES ${OX_3P_LIBS}
-				${OX_OS_LIBS}
-				CalibrationCommon
-				Calibration3D
-				Cartesian2D
-	    			Gradwarp
-				Crucial
-				Core
+list(APPEND ORCHESTRA_LIBRARIES Cartesian2D
+				Cartesian3D
+	    			Gradwarp				
 				Legacy
+				Core
+				CalibrationCommon
 				Control
 				Common
-				Hdf5
+				Crucial
 				Dicom
+				Hdf5
+				Math
 				System
-				Math)
+				${OX_3P_LIBS}
+				${OX_OS_LIBS}
+				)

@@ -14,6 +14,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 find_package(LibXslt REQUIRED)
 find_package(LibXml2 REQUIRED)
 find_package(Ismrmrd REQUIRED)
+find_package(HDF5 REQUIRED)
 find_package(Orchestra)
 
 add_definitions(-std=c++11)

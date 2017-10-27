@@ -11,7 +11,6 @@
 #include "Orchestra/Legacy/Pfile.h"
 
 // Local
-#include "Plugin.h"
 #include "SequenceConverter.h"
 
 // Libxml2 forward declarations
@@ -45,8 +44,6 @@ public:
     GERawConverter(const std::string& pfilepath, bool logging=false);
     //GERawConverter(void *hdr_loc, bool logging=false);
 
-    void usePlugin(const std::string& filename, const std::string& classname);
-
     void useStylesheetFilename(const std::string& filename);
     void useStylesheetStream(std::ifstream& stream);
     void useStylesheetString(const std::string& sheet);
@@ -76,8 +73,7 @@ private:
     std::string stylesheet_;
 
     GERecon::Legacy::PfilePointer pfile_;
-    //std::shared_ptr<pfile_t> old_pfile_;
-    std::shared_ptr<Plugin> plugin_;
+    std::shared_ptr<SequenceConverter> converter_;
 
     logstream log_;
 };

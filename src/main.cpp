@@ -12,24 +12,19 @@
 
 // GE
 #include "GERawConverter.h"
-#include "ge_tools_path.h"
 
 namespace po = boost::program_options;
 
 int main (int argc, char *argv[])
 {
     GESystem::Main(argc, argv);
-    std::string configfile, libpath, classname, stylesheet, pfile, outfile;
+    std::string classname, stylesheet, pfile, outfile;
     std::string usage("pfile2ismrmrd [options] <input P-File>");
-    std::string config_default = get_ge_tools_home() + "share/ge-tools/config/default.xml";
 
     po::options_description basic("Basic Options");
     basic.add_options()
         ("help,h", "print help message")
         ("verbose,v", "enable verbose mode")
-        ("config,c", po::value<std::string>(&configfile)->default_value(config_default), "converter config file")
-        ("library,l", po::value<std::string>(&libpath)->default_value(""), "plugin shared library")
-        ("plugin,p", po::value<std::string>(&classname)->default_value(""), "plugin class name")
         ("stylesheet,x", po::value<std::string>(&stylesheet)->default_value(""), "XSL stylesheet file")
         ("output,o", po::value<std::string>(&outfile)->default_value("testdata.h5"), "output HDF5 file")
         ("rdsfile,r", "P-File from the RDS client")
@@ -75,40 +70,14 @@ int main (int argc, char *argv[])
     if (vm.count("verbose")) {
         verbose = true;
     }
-
-    // Create a new Converter and give it a plugin configuration
+    
+    // Create a new Converter
     std::shared_ptr<PfileToIsmrmrd::GERawConverter> converter;
     try {
         converter = std::make_shared<PfileToIsmrmrd::GERawConverter>(pfile, verbose);
     } catch (const std::exception& e) {
         std::cerr << "Failed to instantiate converter: " << e.what() << std::endl;
         return EXIT_FAILURE;
-    }
-
-    // if a library and classname are specified, they take precedence over the config file
-    if (libpath.size() > 0 || classname.size() > 0) {
-        if (libpath.size() == 0) {
-            std::cerr << "Must specify shared library path when overriding plugin" << std::endl;
-            return EXIT_FAILURE;
-        } else if (classname.size() == 0) {
-            std::cerr << "Must specify plugin class name when overriding plugin" << std::endl;
-            return EXIT_FAILURE;
-        }
-
-        try {
-            converter->usePlugin(libpath, classname);
-        } catch (const std::exception& e) {
-            std::cerr << "Failed to override plugin: " << e.what() << std::endl;
-            return EXIT_FAILURE;
-        }
-    } else {
-        try {
-            std::cout << "Using configuration: " << configfile << std::endl;
-            converter->useConfigFilename(configfile);
-        } catch (const std::exception& e) {
-            std::cerr << "Failed to use configuration: " << e.what() << std::endl;
-            return EXIT_FAILURE;
-        }
     }
 
     // Override stylesheet if specified
@@ -161,7 +130,7 @@ int main (int argc, char *argv[])
 
         std::cout << "Number of acquisitions stored in HDF5 file is " << acqs.size() << std::endl;
         // add these acquisitions to the hdf5 dataset
-        for (int n = 0; n < acqs.size(); n++) {
+        for (int n = 0; n < (int) acqs.size(); n++) {
             d.appendAcquisition(acqs.at(n));
         }
     // }

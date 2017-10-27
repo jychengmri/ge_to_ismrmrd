@@ -1,45 +1,40 @@
 include_directories(${LIBXML2_INCLUDE_DIR})
 
 include_directories(
-    ${ORCHESTRA_INCLUDE_DIRS}
     ${ISMRMRD_INCLUDE_DIR}
+    ${ORCHESTRA_INCLUDE_DIRS}
     ${LIBXSLT_INCLUDE_DIR}
     ${LIBXML2_INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR})
 
-# build P-File to ISMRMRD converter library and tool
+# build P-File to ISMRMRD converter library
 set(P2I_LIB "p2i")
+
 add_library(${P2I_LIB} SHARED
+    GenericConverter.cpp
     GERawConverter.cpp
-    Plugin.cpp)
+)
+    
 target_link_libraries(${P2I_LIB}
     ${ORCHESTRA_LIBRARIES}
     ${LIBXSLT_LIBRARIES}
     ${LIBXML2_LIBRARIES}
     dl)
+    
 install(TARGETS ${P2I_LIB} DESTINATION lib)
+
 install(FILES SequenceConverter.h DESTINATION include/ge-tools)
 
+# build P-File to ISMRMRD exe
 set(P2I_EXE "pfile2ismrmrd")
 add_executable(${P2I_EXE} main.cpp)
 target_link_libraries(${P2I_EXE}
     ${P2I_LIB}
-    ${ORCHESTRA_LIBRARIES}
     ${ISMRMRD_LIBRARIES})
 install(TARGETS ${P2I_EXE} DESTINATION bin)
 
-set(GENERIC_PLUGIN "p2i-generic")
-add_library(${GENERIC_PLUGIN} SHARED GenericConverter.cpp)
-target_link_libraries(${GENERIC_PLUGIN}
-    ${P2I_LIB}
-    ${ISMRMRD_LIBRARIES})
-install(TARGETS ${GENERIC_PLUGIN} DESTINATION lib)
-install(FILES GenericConverter.h DESTINATION include/ge-tools)
-
 install(FILES config/default.xml config/default.xsl
         DESTINATION share/ge-tools/config)
-
-add_subdirectory(NIHPlugins)
 
 # API documentation
 find_package(Doxygen)
