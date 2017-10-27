@@ -11,29 +11,29 @@
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
-      <subjectInformation>
-        <patientName><xsl:value-of select="Header/Patient/Name"/></patientName>
-        <patientWeight_kg><xsl:value-of select="Header/Patient/Weight"/></patientWeight_kg>
-        <patientID><xsl:value-of select="Header/Patient/ID"/></patientID>
-        <xsl:if test="Header/Patient/Birthdate != ''">
-            <patientBirthdate><xsl:value-of select="Header/Patient/Birthdate"/></patientBirthdate>
-        </xsl:if>
-        <patientGender><xsl:value-of select="Header/Patient/Gender"/></patientGender>
-      </subjectInformation>
+      <!-- <subjectInformation> -->
+      <!--   <patientName><xsl:value-of select="Header/Patient/Name"/></patientName> -->
+      <!--   <patientWeight_kg><xsl:value-of select="Header/Patient/Weight"/></patientWeight_kg> -->
+      <!--   <patientID><xsl:value-of select="Header/Patient/ID"/></patientID> -->
+      <!--   <xsl:if test="Header/Patient/Birthdate != ''"> -->
+      <!--       <patientBirthdate><xsl:value-of select="Header/Patient/Birthdate"/></patientBirthdate> -->
+      <!--   </xsl:if> -->
+      <!--   <patientGender><xsl:value-of select="Header/Patient/Gender"/></patientGender> -->
+      <!-- </subjectInformation> -->
 
-      <studyInformation>
-        <studyDate><xsl:value-of select="Header/Study/Date"/></studyDate>
-        <studyTime><xsl:value-of select="Header/Study/Time"/></studyTime>
-        <studyID><xsl:value-of select="Header/Study/Number"/></studyID>
-        <accessionNumber><xsl:value-of select="Header/Study/AccessionNumber"/></accessionNumber>
-        <xsl:if test="Header/Study/ReferringPhysician != ''">
-            <referringPhysicianName><xsl:value-of select="Header/Study/ReferringPhysician"/></referringPhysicianName>
-        </xsl:if>
-        <xsl:if test="Header/Study/Description != ''">
-            <studyDescription><xsl:value-of select="Header/Study/Description"/></studyDescription>
-        </xsl:if>
-        <studyInstanceUID><xsl:value-of select="Header/Study/UID"/></studyInstanceUID>
-      </studyInformation>
+      <!-- <studyInformation> -->
+      <!--   <studyDate><xsl:value-of select="Header/Study/Date"/></studyDate> -->
+      <!--   <studyTime><xsl:value-of select="Header/Study/Time"/></studyTime> -->
+      <!--   <studyID><xsl:value-of select="Header/Study/Number"/></studyID> -->
+      <!--   <accessionNumber><xsl:value-of select="Header/Study/AccessionNumber"/></accessionNumber> -->
+      <!--   <xsl:if test="Header/Study/ReferringPhysician != ''"> -->
+      <!--       <referringPhysicianName><xsl:value-of select="Header/Study/ReferringPhysician"/></referringPhysicianName> -->
+      <!--   </xsl:if> -->
+      <!--   <xsl:if test="Header/Study/Description != ''"> -->
+      <!--       <studyDescription><xsl:value-of select="Header/Study/Description"/></studyDescription> -->
+      <!--   </xsl:if> -->
+      <!--   <studyInstanceUID><xsl:value-of select="Header/Study/UID"/></studyInstanceUID> -->
+      <!-- </studyInformation> -->
 
       <measurementInformation>
         <measurementID><xsl:value-of select="Header/Series/Number"/></measurementID>
