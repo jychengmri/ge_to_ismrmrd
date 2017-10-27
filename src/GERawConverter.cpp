@@ -61,6 +61,23 @@ const std::string g_schema = "\
 
 static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile);
 
+
+	std::string convert_date(const std::string& date_str) {
+		if (date_str.length() == 8) {
+			return date_str.substr(0, 4) + "-"
+				+ date_str.substr(5, 2) + "-" + date_str.substr(6, 2);
+		} else
+			return date_str;
+	}
+	
+	std::string convert_time(const std::string& date_str) {
+		if (date_str.length() == 6) {
+			return date_str.substr(0, 2) + ":"
+				+ date_str.substr(2, 2) + ":" + date_str.substr(4, 2);
+		} else
+			return date_str;
+	}
+
 /**
  * Creates a GERawConverter from an ifstream of the PFile header
  *
@@ -421,8 +438,8 @@ static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile)
     writer.formatElement("Description", "%s", seriesModule->SeriesDescription().c_str());
     //writer.formatElement("Modality", "%s", seriesModule->Modality());
     writer.formatElement("Laterality", "%s", seriesModule->Laterality().c_str());
-    writer.formatElement("Date", "%s", seriesModule->Date().c_str());
-    writer.formatElement("Time", "%s", seriesModule->Time().c_str());
+    writer.formatElement("Date", "%s", convert_date(seriesModule->Date()).c_str());
+    writer.formatElement("Time", "%s", convert_time(seriesModule->Time()).c_str());
     writer.formatElement("ProtocolName", "%s", seriesModule->ProtocolName().c_str());
     writer.formatElement("OperatorName", "%s", seriesModule->OperatorName().c_str());
     writer.formatElement("PpsDescription", "%s", seriesModule->PpsDescription().c_str());
@@ -436,8 +453,8 @@ static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile)
     writer.formatElement("Number", "%d", studyModule->StudyNumber());
     writer.formatElement("UID", "%s", studyModule->UID().c_str());
     writer.formatElement("Description", "%s", studyModule->StudyDescription().c_str());
-    writer.formatElement("Date", "%s", studyModule->Date().c_str());
-    writer.formatElement("Time", "%s", studyModule->Time().c_str());
+    writer.formatElement("Date", "%s", convert_date(studyModule->Date()).c_str());
+    writer.formatElement("Time", "%s", convert_time(studyModule->Time()).c_str());
     writer.formatElement("ReferringPhysician", "%s", studyModule->ReferringPhysician().c_str());
     writer.formatElement("AccessionNumber", "%s", studyModule->AccessionNumber().c_str());
     writer.formatElement("ReadingPhysician", "%s", studyModule->ReadingPhysician().c_str());
@@ -449,7 +466,7 @@ static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile)
     writer.startElement("Patient");
     writer.formatElement("Name", "%s", patientModule->Name().c_str());
     writer.formatElement("ID", "%s", patientModule->ID().c_str());
-    writer.formatElement("Birthdate", "%s", patientModule->Birthdate().c_str());
+    writer.formatElement("Birthdate", "%s", convert_date(patientModule->Birthdate()).c_str());
     writer.formatElement("Gender", "%s", patientModule->Gender().c_str());
     writer.formatElement("Age", "%s", patientStudyModule->Age().c_str());
     writer.formatElement("Weight", "%s", patientStudyModule->Weight().c_str());
@@ -553,10 +570,10 @@ static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile)
     writer.formatElement("EchoTrainLength", "%s", imageModule->EchoTrainLength().c_str());
 
     auto imageModuleBase = dicomImage.ImageModuleBase();
-    writer.formatElement("AcquisitionDate", "%s", imageModuleBase->AcquisitionDate().c_str());
-    writer.formatElement("AcquisitionTime", "%s", imageModuleBase->AcquisitionTime().c_str());
-    writer.formatElement("ImageDate", "%s", imageModuleBase->ImageDate().c_str());
-    writer.formatElement("ImageTime", "%s", imageModuleBase->ImageTime().c_str());
+    writer.formatElement("AcquisitionDate", "%s", convert_date(imageModuleBase->AcquisitionDate()).c_str());
+    writer.formatElement("AcquisitionTime", "%s", convert_time(imageModuleBase->AcquisitionTime()).c_str());
+    writer.formatElement("ImageDate", "%s", convert_date(imageModuleBase->ImageDate()).c_str());
+    writer.formatElement("ImageTime", "%s", convert_time(imageModuleBase->ImageTime()).c_str());
 
     auto imagePlaneModule = dicomImage.ImagePlaneModule();
     writer.formatElement("ImageOrientation", "%s", imagePlaneModule->ImageOrientation().c_str());
