@@ -510,8 +510,27 @@ static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile)
     writer.formatElement("DataSampleSize", "%d", processingControl->Value<int>("DataSampleSize")); // in bytes
                                                                                                    // nacq_points = ncoils * frame_size
 
-    std::string patientPosition = GERecon::PatientPositionAsString(static_cast<GERecon::PatientPosition>(processingControl->Value<int>("PatientPosition")));
-    writer.formatElement("PatientPosition", "%s", patientPosition.c_str());
+    
+    GERecon::PatientPosition patientPosition = static_cast<GERecon::PatientPosition>(processingControl->Value<int>("PatientPosition"));
+    
+    switch(patientPosition)
+    {
+    case GERecon::PatientPosition::Supine:
+	    writer.formatElement("PatientPosition", "%s", "HFS");
+            break;
+    case GERecon::PatientPosition::Prone:
+	    writer.formatElement("PatientPosition", "%s", "HFP");
+            break;
+    case GERecon::PatientPosition::LeftDescending:
+	    writer.formatElement("PatientPosition", "%s", "HFDL");
+            break;
+    case GERecon::PatientPosition::RightDescending:
+	    writer.formatElement("PatientPosition", "%s", "HFDR");
+            break;
+    default:
+	    writer.formatElement("PatientPosition", "%s", "HFS");
+            break;
+    }
     writer.formatElement("PatientEntry", "%d", processingControl->Value<int>("PatientEntry")); // no PatientEntryAsString function in Orchestra
 
     writer.formatElement("ScanCenter", "%f", processingControl->Value<int>("ScanCenter"));

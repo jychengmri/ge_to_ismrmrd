@@ -93,9 +93,7 @@ std::vector<ISMRMRD::Acquisition> GenericConverter::getAcquisitions(
         {
             for (int phaseCount = 0; phaseCount < nPhases ; phaseCount++)
             {
-                // std::cout << "Processing acquisition " << acq_num
-                // << " phase count " << phaseCount << " slice count " << sliceCount << std::endl;
-
+		    
                 // Grab a reference to the acquisition
                 ISMRMRD::Acquisition& acq = acqs.at(acq_num);
 
