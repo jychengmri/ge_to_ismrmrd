@@ -75,7 +75,7 @@
             <x><xsl:value-of select="Header/AcquiredXRes"/></x>
             <y><xsl:value-of select="Header/AcquiredYRes"/></y>
             <xsl:choose>
-                <xsl:when test="(Header/Is3DAcquisition)='true'">
+              <xsl:when test="(Header/Is3DAcquisition)='true' and (Header/IsZEncoded)='true'">
                    <z><xsl:value-of select="Header/AcquiredZRes"/></z>
                 </xsl:when>
                 <xsl:otherwise>
@@ -95,12 +95,12 @@
             <x><xsl:value-of select="Header/TransformXRes"/></x>
             <y><xsl:value-of select="Header/TransformYRes"/></y>
             <xsl:choose>
-                <xsl:when test="(Header/Is3DAcquisition)='true'">
-                   <z><xsl:value-of select="Header/TransformZRes"/></z>
-                </xsl:when>
-                <xsl:otherwise>
-                   <z><xsl:value-of select="1"/></z>
-                </xsl:otherwise>
+              <xsl:when test="(Header/Is3DAcquisition)='true' and (Header/IsZEncoded)='true'">
+                <z><xsl:value-of select="Header/TransformZRes"/></z>
+              </xsl:when>
+              <xsl:otherwise>
+                <z><xsl:value-of select="1"/></z>
+              </xsl:otherwise>
             </xsl:choose>
           </matrixSize>
           <fieldOfView_mm>
@@ -118,13 +118,29 @@
           </kspace_encoding_step_1>
           <kspace_encoding_step_2>
             <minimum>0</minimum>
-            <maximum>0</maximum>
-            <center>0</center>
+            <xsl:choose>
+                <xsl:when test="(Header/Is3DAcquisition)='true' and (Header/IsZEncoded)='true'">
+                   <maximum><xsl:value-of select="Header/SliceCount - 1"/></maximum>
+		   <center><xsl:value-of select="floor(Header/SliceCount div 2)"/></center>
+                </xsl:when>
+                <xsl:otherwise>
+                   <maximum>0</maximum>
+		   <center>0</center>
+                </xsl:otherwise>
+            </xsl:choose>
           </kspace_encoding_step_2>
           <slice>
             <minimum>0</minimum>
-            <maximum><xsl:value-of select="Header/SliceCount - 1"/></maximum>
-            <center><xsl:value-of select="floor(Header/SliceCount div 2)"/></center>
+            <xsl:choose>
+              <xsl:when test="(Header/Is3DAcquisition)='true' and (Header/IsZEncoded)='true'">
+                <maximum>0</maximum>
+		<center>0</center>
+              </xsl:when>
+              <xsl:otherwise>
+                <maximum><xsl:value-of select="Header/SliceCount - 1"/></maximum>
+		<center><xsl:value-of select="floor(Header/SliceCount div 2)"/></center>
+              </xsl:otherwise>
+            </xsl:choose>
           </slice>
           <set>
             <minimum>0</minimum>

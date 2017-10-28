@@ -404,7 +404,7 @@ static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile)
     //writer.formatElement("SampleType", "%d", pfile->SampleType());
     writer.formatElement("BaselineViewCount", "%d", pfile->BaselineViewCount());
     writer.addBooleanElement("Is3D", pfile->Is3D());
-    // writer.addBooleanElement("Is3DIfftDone", pfile->Is3DIfftDone());
+    writer.addBooleanElement("IsZEncoded", pfile->IsZEncoded());
     writer.addBooleanElement("IsRadial3D", pfile->IsRadial3D());
     writer.formatElement("PlaneCount", "%d", pfile->PlaneCount());
     writer.formatElement("OutputPhaseCount", "%d", pfile->OutputPhaseCount());

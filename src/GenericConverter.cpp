@@ -131,8 +131,8 @@ std::vector<ISMRMRD::Acquisition> GenericConverter::getAcquisitions(
 
                 idx.contrast  = echoCount;
                 idx.kspace_encode_step_1 = phaseCount;
-		// If 3D encoding, GE slice index is kspace_encode_step_2
-		if (pfile->Is3D()) {
+		// If 3D acquisition and z encoded, kspace_encode_step_2
+		if (processingControl->Value<bool>("Is3DAcquisition") && pfile->IsZEncoded()) {
 			idx.kspace_encode_step_2 = sliceCount;
 			idx.slice = 0;
 		} else {
