@@ -36,22 +36,22 @@
       <!-- </studyInformation> -->
 
       <measurementInformation>
-        <measurementID><xsl:value-of select="Header/Series/Number"/></measurementID>
-        <seriesDate><xsl:value-of select="Header/Series/Date"/></seriesDate>
-        <seriesTime><xsl:value-of select="Header/Series/Time"/></seriesTime>
+        <!-- <measurementID><xsl:value-of select="Header/Series/Number"/></measurementID> -->
+        <!-- <seriesDate><xsl:value-of select="Header/Series/Date"/></seriesDate> -->
+        <!-- <seriesTime><xsl:value-of select="Header/Series/Time"/></seriesTime> -->
         <patientPosition><xsl:value-of select="Header/PatientPosition"/></patientPosition>
-        <initialSeriesNumber><xsl:value-of select="Header/Series/Number"/></initialSeriesNumber>
+        <!-- <initialSeriesNumber><xsl:value-of select="Header/Series/Number"/></initialSeriesNumber> -->
         <protocolName><xsl:value-of select="Header/Series/ProtocolName"/></protocolName>
         <seriesDescription><xsl:value-of select="Header/Series/Description"/></seriesDescription>
-        <seriesInstanceUIDRoot><xsl:value-of select="Header/Series/UID"/></seriesInstanceUIDRoot>
+        <!-- <seriesInstanceUIDRoot><xsl:value-of select="Header/Series/UID"/></seriesInstanceUIDRoot> -->
         <!-- <frameOfReferenceUID><xsl:value-of select="Header/FrameOfReferenceUID"/></frameOfReferenceUID> -->
-        <referencedImageSequence>
-          <xsl:for-each select="Header/ReferencedImageUIDs">
-            <xsl:if test=". != ''">
-                <referencedSOPInstanceUID><xsl:value-of select="."/></referencedSOPInstanceUID>
-            </xsl:if>
-          </xsl:for-each>
-        </referencedImageSequence>
+        <!-- <referencedImageSequence> -->
+        <!--   <xsl:for-each select="Header/ReferencedImageUIDs"> -->
+        <!--     <xsl:if test=". != ''"> -->
+        <!--         <referencedSOPInstanceUID><xsl:value-of select="."/></referencedSOPInstanceUID> -->
+        <!--     </xsl:if> -->
+        <!--   </xsl:for-each> -->
+        <!-- </referencedImageSequence> -->
       </measurementInformation>
 
       <acquisitionSystemInformation>
@@ -161,10 +161,9 @@
       </encoding>
 
       <sequenceParameters>
-        <TR><xsl:value-of select="Header/Image/RepetitionTime div 1000"/></TR>
-        <TE><xsl:value-of select="Header/Image/EchoTime div 1000"/></TE>
-        <TE><xsl:value-of select="Header/Image/SecondEcho div 1000"/></TE>
-        <TI><xsl:value-of select="Header/Image/InversionTime div 1000"/></TI>
+        <TR><xsl:value-of select="Header/Image/RepetitionTime"/></TR>
+        <TE><xsl:value-of select="Header/Image/EchoTime"/></TE>
+        <TI><xsl:value-of select="Header/Image/InversionTime"/></TI>
         <flipAngle_deg><xsl:value-of select="Header/Image/FlipAngle"/></flipAngle_deg>
       </sequenceParameters>
 

@@ -13,7 +13,6 @@ int GenericConverter::get_view_idx(GERecon::Legacy::Pfile *pfile,
         unsigned int view_num, ISMRMRD::EncodingCounters &idx)
 {
     // set all the ones we don't care about to zero
-    idx.kspace_encode_step_2 = 0;
     idx.average = 0;
     idx.contrast = 0;
     idx.phase = 0;
@@ -130,9 +129,16 @@ std::vector<ISMRMRD::Acquisition> GenericConverter::getAcquisitions(
                 ISMRMRD::EncodingCounters idx;
                 get_view_idx(pfile, 0, idx);
 
-                idx.slice = sliceCount;
                 idx.contrast  = echoCount;
                 idx.kspace_encode_step_1 = phaseCount;
+		// If 3D encoding, GE slice index is kspace_encode_step_2
+		if (pfile->Is3D()) {
+			idx.kspace_encode_step_2 = sliceCount;
+			idx.slice = 0;
+		} else {
+			idx.kspace_encode_step_2 = 0;
+			idx.slice = sliceCount;
+		}
 
                 acq.idx() = idx;
 
@@ -199,4 +205,3 @@ std::vector<ISMRMRD::Acquisition> GenericConverter::getAcquisitions(
 SEQUENCE_CONVERTER_FACTORY_DECLARE(GenericConverter)
 
 } // namespace PfileToIsmrmrd
-
