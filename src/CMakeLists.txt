@@ -1,40 +1,34 @@
-include_directories(${LIBXML2_INCLUDE_DIR})
+set(CONVERTER_LIB "p2i")
+set(CONVERTER_BIN "pfile2ismrmrd")
 
 include_directories(
-    ${ISMRMRD_INCLUDE_DIR}
-    ${ORCHESTRA_INCLUDE_DIRS}
-    ${LIBXSLT_INCLUDE_DIR}
-    ${LIBXML2_INCLUDE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR})
+  ${ISMRMRD_INCLUDE_DIR}
+  ${ORCHESTRA_INCLUDE_DIRS}
+  ${LIBXSLT_INCLUDE_DIR}
+  ${LIBXML2_INCLUDE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR})
 
-# build P-File to ISMRMRD converter library
-set(P2I_LIB "p2i")
-
-add_library(${P2I_LIB} SHARED
-    GenericConverter.cpp
-    GERawConverter.cpp
-)
+add_library(${CONVERTER_LIB} STATIC
+  GenericConverter.cpp
+  GERawConverter.cpp)
     
-target_link_libraries(${P2I_LIB}
-    ${ORCHESTRA_LIBRARIES}
-    ${LIBXSLT_LIBRARIES}
-    ${LIBXML2_LIBRARIES}
-    dl)
-    
-install(TARGETS ${P2I_LIB} DESTINATION lib)
+target_link_libraries(${CONVERTER_LIB}
+  ${ORCHESTRA_LIBRARIES}
+  ${LIBXSLT_LIBRARIES}
+  ${LIBXML2_LIBRARIES}
+  dl)
 
+# Will make static for portability
+#install(TARGETS ${CONVERTER_LIB} DESTINATION lib)
 install(FILES SequenceConverter.h DESTINATION include/ge-tools)
 
-# build P-File to ISMRMRD exe
-set(P2I_EXE "pfile2ismrmrd")
-add_executable(${P2I_EXE} main.cpp)
-target_link_libraries(${P2I_EXE}
-    ${P2I_LIB}
+add_executable(${CONVERTER_BIN} main.cpp)
+target_link_libraries(${CONVERTER_BIN}
+    ${CONVERTER_LIB}
     ${ISMRMRD_LIBRARIES})
-install(TARGETS ${P2I_EXE} DESTINATION bin)
+install(TARGETS ${CONVERTER_BIN} DESTINATION bin)
 
-install(FILES config/default.xml config/default.xsl
-        DESTINATION share/ge-tools/config)
+install(FILES config/default.xml config/default.xsl DESTINATION share/ge-tools/config)
 
 # API documentation
 find_package(Doxygen)

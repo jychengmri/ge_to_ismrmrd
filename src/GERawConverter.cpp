@@ -578,7 +578,7 @@ static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile)
     if (imageModule->InversionTime().length() > 0)
 	    writer.formatElement("InversionTime", "%s", imageModule->InversionTime().c_str());
     else
-	    writer.formatElement("InversionTime", "0");
+      writer.writeElement("InversionTime", "0");
     writer.formatElement("ImageType", "%s", imageModule->ImageType().c_str());
     writer.formatElement("ScanSequence", "%s", imageModule->ScanSequence().c_str());
     writer.formatElement("SequenceVariant", "%s", imageModule->SequenceVariant().c_str());

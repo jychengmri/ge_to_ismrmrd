@@ -19,6 +19,7 @@ endif()
 # Include SDK build configuration
 set(TOPDIR "${OX_INSTALL_DIRECTORY}/include")
 include (${TOPDIR}/recon/SDK/product.cmake)
+set(LARGE_LIBRARY_TYPE STATIC)
 
 list(APPEND ORCHESTRA_LIBRARIES Cartesian2D
 				Cartesian3D

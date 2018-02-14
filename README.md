@@ -33,13 +33,13 @@ Orchestra conversion tools
     cd ge_to_ismrmrd/
     mkdir build
     cd build/
-    cmake -D OX_INSTALL_DIRECTORY=~/orchestra-sdk-1.6-1 ..
-    make install
+    CC=gcc-4.9 CXX=g++-4.9 cmake -G Ninja ..
+    ninja install
     cd ../
     ```
 
 1. A typical command line to convert the supplied P-file using this library is:
 
    ```bash
-   pfile2ismrmrd -v -l libp2i-generic.so -p GenericConverter -x $GE_TOOLS_HOME/share/ge-tools/config/default.xsl P12800_sample.7
+   pfile2ismrmrd -v -x $GE_TOOLS_HOME/share/ge-tools/config/default.xsl P12800_sample.7
    ```

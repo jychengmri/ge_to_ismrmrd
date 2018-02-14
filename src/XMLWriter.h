@@ -89,6 +89,14 @@ public:
         }
     }
 
+    void writeElement(const std::string& name, const std::string& content)
+    {
+      int rc = xmlTextWriterWriteElement(writer_, BAD_CAST name.c_str(), BAD_CAST content.c_str());
+      if (rc < 0) {
+        throw std::runtime_error("Error formatting xml element");
+      }
+    }
+
     void addBooleanElement(const std::string& name, bool value) {
         formatElement(name, "%s", value ? "true" : "false");
     }

@@ -25,13 +25,13 @@ struct logstream {
 };
 
 template <typename T>
-logstream& operator<<(logstream& s, T const& v)
+inline logstream& operator<<(logstream& s, T const& v)
 {
     if (s.enabled) { std::clog << v; }
     return s;
 }
 
-logstream& operator<<(logstream& s, std::ostream& (*f)(std::ostream&))
+inline logstream& operator<<(logstream& s, std::ostream& (*f)(std::ostream&))
 {
     if (s.enabled) { f(std::clog); }
     return s;
