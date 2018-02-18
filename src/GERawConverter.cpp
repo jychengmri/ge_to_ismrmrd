@@ -344,6 +344,12 @@ std::vector<ISMRMRD::Acquisition> GERawConverter::getAcquisitions(unsigned int v
   return converter_->getAcquisitions(pfile_.get(), view_num);
 }
 
+boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > GERawConverter::getKSpaceMatrix(unsigned int i_echo,
+                                                                                      unsigned int i_phase)
+{
+  return converter_->getKSpaceMatrix(pfile_.get(), i_echo, i_phase);
+}
+
 /**
  * Gets the extra field "reconConfig" from the
  * ge-ismrmrd XML configuration. This can be used to
@@ -361,6 +367,17 @@ unsigned int GERawConverter::getNumViews(void)
 {
   return pfile_->ViewCount();
 }
+
+unsigned int GERawConverter::getNumEchoes(void)
+{
+  return pfile_->EchoCount();
+}
+
+unsigned int GERawConverter::getNumPhases(void)
+{
+  return pfile_->PhaseCount();
+}
+
 
 /**
  * Sets the PFile origin to the RDS client

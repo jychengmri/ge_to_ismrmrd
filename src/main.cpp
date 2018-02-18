@@ -121,6 +121,20 @@ int main (int argc, char *argv[])
     converter->setRDS();
   }
 
+  unsigned int numPhases = converter->getNumPhases();
+  unsigned int numEchoes = converter->getNumEchoes();
+  char kSpaceName [128];
+  for (unsigned int i_phase = 0; i_phase < numPhases; i_phase ++)
+    for (unsigned int i_echo = 0; i_echo < numEchoes; i_echo ++) {
+      if (numPhases > 1) 
+        std::sprintf(kSpaceName, "kSpaceMatrix_phase%02d", i_phase);
+      else
+        std::sprintf(kSpaceName, "kSpaceMatrix");
+      boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > kSpaceMatrix = converter->getKSpaceMatrix(i_echo, i_phase);
+      d.appendNDArray(kSpaceName, *kSpaceMatrix);
+    }
+
+  /*
   unsigned int nviews = converter->getNumViews();
   std::cout << "Num views = " << nviews << std::endl;
   // for (unsigned int view_num = 0; view_num < nviews; view_num++) {
@@ -134,8 +148,8 @@ int main (int argc, char *argv[])
     d.appendAcquisition(acqs.at(n));
   }
   // }
-
-  std::cout << "Swedished!" << std::endl;
-
+  */
+  //std::cout << "Swedished!" << std::endl;
+  
   return EXIT_SUCCESS;
 }

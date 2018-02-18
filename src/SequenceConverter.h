@@ -36,6 +36,9 @@ public:
      */
     virtual std::vector<ISMRMRD::Acquisition> getAcquisitions(GERecon::Legacy::Pfile* pfile, unsigned int view_num) = 0;
 
+    virtual boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > getKSpaceMatrix(GERecon::Legacy::Pfile* pfile,
+                                                                                  unsigned int i_echo,
+                                                                                  unsigned int i_phase) = 0;
 };
 
 

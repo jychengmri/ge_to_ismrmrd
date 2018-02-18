@@ -55,9 +55,13 @@ public:
     std::string getIsmrmrdXMLHeader();
 
     std::vector<ISMRMRD::Acquisition> getAcquisitions(unsigned int view_num);
+    boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > getKSpaceMatrix(unsigned int i_echo,
+                                                                          unsigned int i_phase);
 
     std::string getReconConfigName(void);
     unsigned int getNumViews(void);
+    unsigned int getNumEchoes(void);
+    unsigned int getNumPhases(void);
     void setRDS(void);
 
 private:

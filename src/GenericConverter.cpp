@@ -66,6 +66,49 @@ int GenericConverter::get_view_idx(GERecon::Legacy::Pfile *pfile,
 }
 
 
+boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > GenericConverter::getKSpaceMatrix(
+  GERecon::Legacy::Pfile* pfile, unsigned int i_echo, unsigned int i_phase)
+{
+  const GERecon::Control::ProcessingControlPointer processingControl(pfile->CreateOrchestraProcessingControl());
+  //const GERecon::Legacy::LxDownloadData& downloadData = *pfile->DownloadData();
+  //const GERecon::Legacy::RdbHeaderRec& rdbHeader = downloadData.RawHeader();
+  
+  unsigned int lenFrame = (unsigned int)processingControl->Value<int>("AcquiredXRes");
+  unsigned int numViews = (unsigned int)processingControl->Value<int>("AcquiredYRes");
+  unsigned int numSlices = (unsigned int)processingControl->Value<int>("AcquiredZRes");
+  unsigned int numChannels = pfile->ChannelCount();
+
+  std::vector<size_t> dims = {lenFrame, numViews, numSlices, numChannels};
+  boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > kSpaceMatrix (new ISMRMRD::NDArray<complex_float_t>(dims));
+  //const MDArray::FloatVector channelWeights = processingControl->Value<FloatVector>("ChannelWeights");
+ 
+  // Orchestra API provides size in bytes.
+  // Pfile is stored as (readout, views, echoes, slice, channel)
+  #pragma omp parallel for collapse(2)
+  for (unsigned int i_channel = 0; i_channel < numChannels; i_channel++) {
+    for (unsigned int i_slice = 0; i_slice < numSlices; i_slice++) {
+      MDArray::ComplexFloatMatrix kSpace;
+      if (pfile->IsZEncoded()) {  
+        auto kSpaceRead = pfile->KSpaceData<float>(
+          GERecon::Legacy::Pfile::PassSlicePair(i_phase, i_slice), i_echo, i_channel);
+        kSpace.reference(kSpaceRead);
+      }
+      else {            
+        auto kSpaceRead = pfile->KSpaceData<float>(i_slice, i_echo, i_channel, i_phase);
+        kSpace.reference(kSpaceRead);
+      }
+
+      for (unsigned int i_view = 0; i_view < numViews; i_view++) {
+        for (unsigned int i = 0 ; i < lenFrame ; i++)
+          (*kSpaceMatrix)(i, i_view, i_slice, i_echo, i_channel, i_phase) = kSpace((int)i, (int)i_view);
+          
+      } // for (i_view)
+    } // for (i_slice)
+  } // for (i_channel)
+
+  return kSpaceMatrix;
+
+  }
 
 std::vector<ISMRMRD::Acquisition> GenericConverter::getAcquisitions(
         GERecon::Legacy::Pfile* pfile, unsigned int acq_mode)
@@ -74,8 +117,8 @@ std::vector<ISMRMRD::Acquisition> GenericConverter::getAcquisitions(
   std::vector<ISMRMRD::Acquisition> acqs;
   
   const GERecon::Control::ProcessingControlPointer processingControl(pfile->CreateOrchestraProcessingControl());
-  const GERecon::Legacy::LxDownloadData& downloadData = *pfile->DownloadData();
-  const GERecon::Legacy::RdbHeaderRec& rdbHeader = downloadData.RawHeader();
+  //const GERecon::Legacy::LxDownloadData& downloadData = *pfile->DownloadData();
+  //const GERecon::Legacy::RdbHeaderRec& rdbHeader = downloadData.RawHeader();
   
   int lenFrame = processingControl->Value<int>("AcquiredXRes");
   int numViews = processingControl->Value<int>("AcquiredYRes");
