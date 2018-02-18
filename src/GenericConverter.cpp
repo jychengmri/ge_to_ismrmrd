@@ -100,7 +100,7 @@ boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > GenericConverter::getKSpac
 
       for (unsigned int i_view = 0; i_view < numViews; i_view++) {
         for (unsigned int i = 0 ; i < lenFrame ; i++)
-          (*kSpaceMatrix)(i, i_view, i_slice, i_echo, i_channel, i_phase) = kSpace((int)i, (int)i_view);
+          (*kSpaceMatrix)(i, i_view, i_slice, i_channel) = kSpace((int)i, (int)i_view);
           
       } // for (i_view)
     } // for (i_slice)
