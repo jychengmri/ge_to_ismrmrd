@@ -59,25 +59,23 @@ const std::string g_schema = "\
     </xs:complexType>                                                       \
 </xs:schema>";
 
-static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile);
-
-
-	std::string convert_date(const std::string& date_str) {
-		if (date_str.length() == 8) {
-			return date_str.substr(0, 4) + "-"
-				+ date_str.substr(5, 2) + "-" + date_str.substr(6, 2);
-		} else
-			return date_str;
-	}
-	
-	std::string convert_time(const std::string& date_str) {
-		if (date_str.length() == 6) {
-			return date_str.substr(0, 2) + ":"
-				+ date_str.substr(2, 2) + ":" + date_str.substr(4, 2);
-		} else
-			return date_str;
-	}
-
+  static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile);
+  std::string convert_date(const std::string& date_str) {
+    if (date_str.length() == 8) {
+      return date_str.substr(0, 4) + "-"
+        + date_str.substr(5, 2) + "-" + date_str.substr(6, 2);
+    } else
+      return date_str;
+  }
+  
+  std::string convert_time(const std::string& date_str) {
+    if (date_str.length() == 6) {
+      return date_str.substr(0, 2) + ":"
+        + date_str.substr(2, 2) + ":" + date_str.substr(4, 2);
+    } else
+      return date_str;
+  }
+  
 /**
  * Creates a GERawConverter from an ifstream of the PFile header
  *
@@ -87,22 +85,20 @@ static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile);
 GERawConverter::GERawConverter(const std::string& pfilepath, bool logging)
     : log_(logging)
 {
-    FILE* fp = NULL;
-    if (!(fp = fopen(pfilepath.c_str(), "rb"))) {
-        throw std::runtime_error("Failed to open " + pfilepath);
-    }
+  FILE* fp = NULL;
+  if (!(fp = fopen(pfilepath.c_str(), "rb"))) {
+    throw std::runtime_error("Failed to open " + pfilepath);
+  }
+  
+  psdname_ = ""; // TODO: find PSD Name in Orchestra Pfile class
+  log_ << "PSDName: " << psdname_ << std::endl;
 
-    psdname_ = ""; // TODO: find PSD Name in Orchestra Pfile class
-    log_ << "PSDName: " << psdname_ << std::endl;
+  // Using Orchestra
+  pfile_ = GERecon::Legacy::Pfile::Create(pfilepath,
+                                          GERecon::Legacy::Pfile::AllAvailableAcquisitions,
+                                          GERecon::AnonymizationPolicy(GERecon::AnonymizationPolicy::None));
 
-    // Using Orchestra
-    pfile_ = GERecon::Legacy::Pfile::Create(pfilepath,
-            GERecon::Legacy::Pfile::AllAvailableAcquisitions,
-            GERecon::AnonymizationPolicy(GERecon::AnonymizationPolicy::None));
-
-    converter_ = std::shared_ptr<SequenceConverter>(new GenericConverter());
-    
-    log_ << "here";
+  converter_ = std::shared_ptr<SequenceConverter>(new GenericConverter());
 }
 
 /**
@@ -125,76 +121,76 @@ GERawConverter::GERawConverter(void *hdr_loc, bool logging)
 
 void GERawConverter::useStylesheetFilename(const std::string& filename)
 {
-    log_ << "Loading stylesheet: " << filename << std::endl;
-    std::ifstream stream(filename.c_str(), std::ios::binary);
-    useStylesheetStream(stream);
+  log_ << "Loading stylesheet: " << filename << std::endl;
+  std::ifstream stream(filename.c_str(), std::ios::binary);
+  useStylesheetStream(stream);
 }
 
 void GERawConverter::useStylesheetStream(std::ifstream& stream)
 {
-    stream.seekg(0, std::ios::beg);
+  stream.seekg(0, std::ios::beg);
 
-    std::string sheet((std::istreambuf_iterator<char>(stream)),
-            std::istreambuf_iterator<char>());
-    useStylesheetString(sheet);
+  std::string sheet((std::istreambuf_iterator<char>(stream)),
+                    std::istreambuf_iterator<char>());
+  useStylesheetString(sheet);
 }
 
 void GERawConverter::useStylesheetString(const std::string& sheet)
 {
-    stylesheet_ = sheet;
+  stylesheet_ = sheet;
 }
 
 void GERawConverter::useConfigFilename(const std::string& filename)
 {
-    log_ << "Loading configuration: " << filename << std::endl;
-    std::ifstream stream(filename.c_str(), std::ios::binary);
-    useConfigStream(stream);
+  log_ << "Loading configuration: " << filename << std::endl;
+  std::ifstream stream(filename.c_str(), std::ios::binary);
+  useConfigStream(stream);
 }
 
 void GERawConverter::useConfigStream(std::ifstream& stream)
 {
-    stream.seekg(0, std::ios::beg);
+  stream.seekg(0, std::ios::beg);
 
-    std::string config((std::istreambuf_iterator<char>(stream)),
-            std::istreambuf_iterator<char>());
-    useConfigString(config);
+  std::string config((std::istreambuf_iterator<char>(stream)),
+                     std::istreambuf_iterator<char>());
+  useConfigString(config);
 }
 
 bool GERawConverter::validateConfig(std::shared_ptr<xmlDoc> config_doc)
 {
-    log_ << "Validating configuration" << std::endl;
+  log_ << "Validating configuration" << std::endl;
 
-    std::shared_ptr<xmlDoc> schema_doc = std::shared_ptr<xmlDoc>(
+  std::shared_ptr<xmlDoc> schema_doc = std::shared_ptr<xmlDoc>(
             xmlParseMemory(g_schema.c_str(), g_schema.size()), xmlFreeDoc);
-    if (!schema_doc) {
-        throw std::runtime_error("Failed to parse embedded config-file schema");
-    }
+  if (!schema_doc) {
+    throw std::runtime_error("Failed to parse embedded config-file schema");
+  }
 
-    std::shared_ptr<xmlSchemaParserCtxt> parser_ctx = std::shared_ptr<xmlSchemaParserCtxt>(
-            xmlSchemaNewDocParserCtxt(schema_doc.get()), xmlSchemaFreeParserCtxt);
-    if (!parser_ctx) {
-        throw std::runtime_error("Failed to create schema parser");
-    }
+  std::shared_ptr<xmlSchemaParserCtxt> parser_ctx = std::shared_ptr<xmlSchemaParserCtxt>(
+     xmlSchemaNewDocParserCtxt(schema_doc.get()), xmlSchemaFreeParserCtxt);
+  if (!parser_ctx) {
+    throw std::runtime_error("Failed to create schema parser");
+  }
 
-    std::shared_ptr<xmlSchema> schema = std::shared_ptr<xmlSchema>(
+  std::shared_ptr<xmlSchema> schema = std::shared_ptr<xmlSchema>(
             xmlSchemaParse(parser_ctx.get()), xmlSchemaFree);
-    if (!schema) {
-        throw std::runtime_error("Failed to create schema");
-    }
-
-    std::shared_ptr<xmlSchemaValidCtxt> valid_ctx = std::shared_ptr<xmlSchemaValidCtxt>(
+  if (!schema) {
+    throw std::runtime_error("Failed to create schema");
+  }
+  
+  std::shared_ptr<xmlSchemaValidCtxt> valid_ctx = std::shared_ptr<xmlSchemaValidCtxt>(
             xmlSchemaNewValidCtxt(schema.get()), xmlSchemaFreeValidCtxt);
-    if (!valid_ctx) {
-        throw std::runtime_error("Failed to create schema validity context");
-    }
+  if (!valid_ctx) {
+    throw std::runtime_error("Failed to create schema validity context");
+  }
 
-    // Set error/warning logging functions
-    // xmlSchemaSetValidErrors(valid_ctx, errors, warnings, NULL);
+  // Set error/warning logging functions
+  // xmlSchemaSetValidErrors(valid_ctx, errors, warnings, NULL);
 
-    if (xmlSchemaValidateDoc(valid_ctx.get(), config_doc.get()) == 0) {
-        return true;
-    }
-    return false;
+  if (xmlSchemaValidateDoc(valid_ctx.get(), config_doc.get()) == 0) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -204,39 +200,39 @@ bool GERawConverter::validateConfig(std::shared_ptr<xmlDoc> config_doc)
  */
 void GERawConverter::useConfigString(const std::string& config)
 {
-    std::string error_message;
-
-    std::shared_ptr<xmlDoc> config_doc = std::shared_ptr<xmlDoc>(
+  std::string error_message;
+  
+  std::shared_ptr<xmlDoc> config_doc = std::shared_ptr<xmlDoc>(
             xmlParseMemory(config.c_str(), config.size()), xmlFreeDoc);
-    if (!config_doc) {
-        throw std::runtime_error("Failed to parse config");
+  if (!config_doc) {
+    throw std::runtime_error("Failed to parse config");
+  }
+
+  if (!validateConfig(config_doc)) {
+    throw std::runtime_error("Invalid configuration");
+  }
+  
+  log_ << "Searching for sequence mapping" << std::endl;
+    
+  xmlNodePtr cur = xmlDocGetRootElement(config_doc.get());
+  if (NULL == cur) {
+    throw std::runtime_error("Can't get root element of configuration");
+  }
+
+  if (xmlStrcmp(cur->name, (const xmlChar *)"conversionConfiguration")) {
+    throw std::runtime_error("root element should be \"conversionConfiguration\"");
+  }
+
+  cur = cur->xmlChildrenNode;
+  while (cur != NULL) {
+    if (xmlStrcmp(cur->name, (const xmlChar*) "sequenceMapping") == 0) {
+      if (trySequenceMapping(config_doc, cur)) {
+        break;
+      }
     }
-
-    if (!validateConfig(config_doc)) {
-        throw std::runtime_error("Invalid configuration");
-    }
-
-    log_ << "Searching for sequence mapping" << std::endl;
-
-    xmlNodePtr cur = xmlDocGetRootElement(config_doc.get());
-    if (NULL == cur) {
-        throw std::runtime_error("Can't get root element of configuration");
-    }
-
-    if (xmlStrcmp(cur->name, (const xmlChar *)"conversionConfiguration")) {
-        throw std::runtime_error("root element should be \"conversionConfiguration\"");
-    }
-
-    cur = cur->xmlChildrenNode;
-    while (cur != NULL) {
-        if (xmlStrcmp(cur->name, (const xmlChar*) "sequenceMapping") == 0) {
-            if (trySequenceMapping(config_doc, cur)) {
-                break;
-            }
-        }
-
-        cur = cur->next;
-    }
+    
+    cur = cur->next;
+  }
 }
 
 /**
@@ -246,35 +242,35 @@ void GERawConverter::useConfigString(const std::string& config)
  */
 bool GERawConverter::trySequenceMapping(std::shared_ptr<xmlDoc> doc, xmlNodePtr mapping)
 {
-    xmlNodePtr parameter = mapping->xmlChildrenNode;
-    std::string psdname, libpath, classname, stylesheet, reconconfig;
-
-    while (parameter != NULL) {
-        if (xmlStrcmp(parameter->name, (const xmlChar*)"psdname") == 0) {
-            char *tmp = (char*)xmlNodeListGetString(doc.get(), parameter->xmlChildrenNode, 1);
-            psdname = std::string(tmp);
-            xmlFree(tmp);
-        } else if (xmlStrcmp(parameter->name, (const xmlChar*)"libraryPath") == 0) {
-            char *tmp = (char*)xmlNodeListGetString(doc.get(), parameter->xmlChildrenNode, 1);
-            libpath = std::string(tmp);
-            xmlFree(tmp);
-        } else if (xmlStrcmp(parameter->name, (const xmlChar*)"className") == 0) {
-            char *tmp = (char*)xmlNodeListGetString(doc.get(), parameter->xmlChildrenNode, 1);
-            classname = std::string(tmp);
-            xmlFree(tmp);
-        } else if (xmlStrcmp(parameter->name, (const xmlChar*)"stylesheet") == 0) {
-            char *tmp = (char*)xmlNodeListGetString(doc.get(), parameter->xmlChildrenNode, 1);
-            stylesheet = std::string(tmp);
-            xmlFree(tmp);
-        } else if (xmlStrcmp(parameter->name, (const xmlChar*)"reconConfigName") == 0) {
-            char *tmp = (char*)xmlNodeListGetString(doc.get(), parameter->xmlChildrenNode, 1);
-            reconconfig = std::string(tmp);
-            xmlFree(tmp);
-        }
-        parameter = parameter->next;
+  xmlNodePtr parameter = mapping->xmlChildrenNode;
+  std::string psdname, libpath, classname, stylesheet, reconconfig;
+  
+  while (parameter != NULL) {
+    if (xmlStrcmp(parameter->name, (const xmlChar*)"psdname") == 0) {
+      char *tmp = (char*)xmlNodeListGetString(doc.get(), parameter->xmlChildrenNode, 1);
+      psdname = std::string(tmp);
+      xmlFree(tmp);
+    } else if (xmlStrcmp(parameter->name, (const xmlChar*)"libraryPath") == 0) {
+      char *tmp = (char*)xmlNodeListGetString(doc.get(), parameter->xmlChildrenNode, 1);
+      libpath = std::string(tmp);
+      xmlFree(tmp);
+    } else if (xmlStrcmp(parameter->name, (const xmlChar*)"className") == 0) {
+      char *tmp = (char*)xmlNodeListGetString(doc.get(), parameter->xmlChildrenNode, 1);
+      classname = std::string(tmp);
+      xmlFree(tmp);
+    } else if (xmlStrcmp(parameter->name, (const xmlChar*)"stylesheet") == 0) {
+      char *tmp = (char*)xmlNodeListGetString(doc.get(), parameter->xmlChildrenNode, 1);
+      stylesheet = std::string(tmp);
+      xmlFree(tmp);
+    } else if (xmlStrcmp(parameter->name, (const xmlChar*)"reconConfigName") == 0) {
+      char *tmp = (char*)xmlNodeListGetString(doc.get(), parameter->xmlChildrenNode, 1);
+      reconconfig = std::string(tmp);
+      xmlFree(tmp);
     }
-
-    return true;
+    parameter = parameter->next;
+  }
+  
+  return true;
 }
 
 /**
@@ -285,21 +281,21 @@ bool GERawConverter::trySequenceMapping(std::shared_ptr<xmlDoc> doc, xmlNodePtr 
  */
 std::string GERawConverter::getIsmrmrdXMLHeader()
 {
-    if (stylesheet_.size() == 0) {
-        throw std::runtime_error("No stylesheet configured");
-    }
+  if (stylesheet_.size() == 0) {
+    throw std::runtime_error("No stylesheet configured");
+  }
 
-    std::string pfile_header(pfile_to_xml(pfile_));
+  std::string pfile_header(pfile_to_xml(pfile_));
 
-    // DEBUG:
-    std::cout << pfile_header << std::endl;
+  // DEBUG:
+  //std::cout << pfile_header << std::endl;
 
-    xmlSubstituteEntitiesDefault(1);
-    xmlLoadExtDtdDefaultValue = 1;
+  xmlSubstituteEntitiesDefault(1);
+  xmlLoadExtDtdDefaultValue = 1;
 
-    // Normal pointer here because the xsltStylesheet takes ownership
-    xmlDocPtr stylesheet_doc = xmlParseMemory(stylesheet_.c_str(), stylesheet_.size());
-    if (NULL == stylesheet_doc) {
+  // Normal pointer here because the xsltStylesheet takes ownership
+  xmlDocPtr stylesheet_doc = xmlParseMemory(stylesheet_.c_str(), stylesheet_.size());
+  if (NULL == stylesheet_doc) {
         throw std::runtime_error("Failed to parse stylesheet");
     }
 
@@ -345,7 +341,7 @@ std::string GERawConverter::getIsmrmrdXMLHeader()
  */
 std::vector<ISMRMRD::Acquisition> GERawConverter::getAcquisitions(unsigned int view_num)
 {
-	return converter_->getAcquisitions(pfile_.get(), view_num);
+  return converter_->getAcquisitions(pfile_.get(), view_num);
 }
 
 /**
@@ -355,7 +351,7 @@ std::vector<ISMRMRD::Acquisition> GERawConverter::getAcquisitions(unsigned int v
  */
 std::string GERawConverter::getReconConfigName(void)
 {
-    return std::string(recon_config_);
+  return std::string(recon_config_);
 }
 
 /**
@@ -377,239 +373,231 @@ void GERawConverter::setRDS(void)
 
 static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile)
 {
-    XMLWriter writer;
+  XMLWriter writer;
+  writer.startDocument();
 
-    writer.startDocument();
+  writer.startElement("Header");
+  writer.formatElement("RunNumber", "%d", pfile->RunNumber());
+  writer.formatElement("AcqCount", "%d", pfile->AcqCount());
+  writer.formatElement("PassCount", "%d", pfile->PassCount());
+  writer.formatElement("PfileCount", "%d", pfile->PfileCount());
+  writer.addBooleanElement("IsConcatenated", pfile->IsConcatenated());
+  writer.addBooleanElement("IsRawMode", pfile->IsRawMode());
+  writer.formatElement("SliceCount", "%d", pfile->SliceCount());
+  writer.formatElement("AcquiredSlicesPerAcq", "%d", pfile->AcquiredSlicesPerAcq());
+  writer.formatElement("EchoCount", "%d", pfile->EchoCount());
+  writer.formatElement("ChannelCount", "%d", pfile->ChannelCount());
+  writer.formatElement("PhaseCount", "%d", pfile->PhaseCount());
+  writer.formatElement("XRes", "%d", pfile->XRes());
+  writer.formatElement("YRes", "%d", pfile->YRes());
+  writer.formatElement("RawDataSize", "%llu", pfile->RawDataSize());
+  writer.formatElement("TotalChannelSize", "%llu", pfile->TotalChannelSize());
+  writer.formatElement("ViewCount", "%u", pfile->ViewCount());
+  writer.formatElement("ViewSize", "%u", pfile->ViewSize());
+  writer.formatElement("SampleSize", "%u", pfile->SampleSize());
+  //writer.formatElement("SampleType", "%d", pfile->SampleType());
+  writer.formatElement("BaselineViewCount", "%d", pfile->BaselineViewCount());
+  writer.addBooleanElement("Is3D", pfile->Is3D());
+  writer.addBooleanElement("IsZEncoded", pfile->IsZEncoded());
+  writer.addBooleanElement("IsRadial3D", pfile->IsRadial3D());
+  writer.formatElement("PlaneCount", "%d", pfile->PlaneCount());
+  writer.formatElement("OutputPhaseCount", "%d", pfile->OutputPhaseCount());
+  writer.formatElement("ShotCount", "%d", pfile->ShotCount());
+  writer.formatElement("RepetitionCount", "%d", pfile->RepetitionCount());
+  writer.addBooleanElement("IsEpi", pfile->IsEpi());
+  writer.addBooleanElement("IsPerChannelMultiVoxelSpectro", pfile->IsPerChannelMultiVoxelSpectro());
+  writer.addBooleanElement("IsMCSI", pfile->IsMCSI());
+  writer.addBooleanElement("IsSingleVoxel", pfile->IsSingleVoxel());
+  writer.addBooleanElement("IsDiffusionEpi", pfile->IsDiffusionEpi());
+  writer.addBooleanElement("IsMultiPhaseEpi", pfile->IsMultiPhaseEpi());
+  writer.addBooleanElement("IsFunctionalMri", pfile->IsFunctionalMri());
+  writer.addBooleanElement("IsTricks", pfile->IsTricks());
+  writer.addBooleanElement("IsCine", pfile->IsCine());
+  writer.addBooleanElement("IsCalibration", pfile->IsCalibration());
+  writer.addBooleanElement("IsMavric", pfile->IsMavric());
+  //writer.formatElement("NumEpiDiffusionNexes", "%d", pfile->NumEpiDiffusionNexes());
+  writer.addBooleanElement("IsTopDownEpi", pfile->IsTopDownEpi());
+  writer.addBooleanElement("IsBottomUpEpi", pfile->IsBottomUpEpi());
+  //writer.formatElement("NumberOfNexs", "%d", pfile->NumberOfNexs());
+  writer.formatElement("MultiPhaseType", "%d", pfile->MultiPhaseType()); // this is interleaved field
 
-    writer.startElement("Header");
+  const GERecon::Legacy::LxDownloadDataPointer lxData = pfile->DownloadData();
+  GERecon::Legacy::DicomSeries legacySeries(lxData);
+  GEDicom::SeriesPointer series = legacySeries.Series();
+  GEDicom::SeriesModulePointer seriesModule = series->GeneralModule();
+  writer.startElement("Series");
+  writer.formatElement("Number", "%d", lxData->SeriesNumber());
+  writer.formatElement("UID", "%s", seriesModule->UID().c_str());
+  writer.formatElement("Description", "%s", seriesModule->SeriesDescription().c_str());
+  //writer.formatElement("Modality", "%s", seriesModule->Modality());
+  writer.formatElement("Laterality", "%s", seriesModule->Laterality().c_str());
+  writer.formatElement("Date", "%s", convert_date(seriesModule->Date()).c_str());
+  writer.formatElement("Time", "%s", convert_time(seriesModule->Time()).c_str());
+  writer.formatElement("ProtocolName", "%s", seriesModule->ProtocolName().c_str());
+  writer.formatElement("OperatorName", "%s", seriesModule->OperatorName().c_str());
+  writer.formatElement("PpsDescription", "%s", seriesModule->PpsDescription().c_str());
+  //writer.formatElement("PatientEntry", "%s", seriesModule->Entry());
+  //writer.formatElement("PatientOrientation", "%s", seriesModule->Orientation());
+  writer.endElement();
 
-    writer.formatElement("RunNumber", "%d", pfile->RunNumber());
-    writer.formatElement("AcqCount", "%d", pfile->AcqCount());
-    writer.formatElement("PassCount", "%d", pfile->PassCount());
-    writer.formatElement("PfileCount", "%d", pfile->PfileCount());
-    writer.addBooleanElement("IsConcatenated", pfile->IsConcatenated());
-    writer.addBooleanElement("IsRawMode", pfile->IsRawMode());
-    writer.formatElement("SliceCount", "%d", pfile->SliceCount());
-    writer.formatElement("AcquiredSlicesPerAcq", "%d", pfile->AcquiredSlicesPerAcq());
-    writer.formatElement("EchoCount", "%d", pfile->EchoCount());
-    writer.formatElement("ChannelCount", "%d", pfile->ChannelCount());
-    writer.formatElement("PhaseCount", "%d", pfile->PhaseCount());
-    writer.formatElement("XRes", "%d", pfile->XRes());
-    writer.formatElement("YRes", "%d", pfile->YRes());
-    writer.formatElement("RawDataSize", "%llu", pfile->RawDataSize());
-    writer.formatElement("TotalChannelSize", "%llu", pfile->TotalChannelSize());
-    writer.formatElement("ViewCount", "%u", pfile->ViewCount());
-    writer.formatElement("ViewSize", "%u", pfile->ViewSize());
-    writer.formatElement("SampleSize", "%u", pfile->SampleSize());
-    //writer.formatElement("SampleType", "%d", pfile->SampleType());
-    writer.formatElement("BaselineViewCount", "%d", pfile->BaselineViewCount());
-    writer.addBooleanElement("Is3D", pfile->Is3D());
-    writer.addBooleanElement("IsZEncoded", pfile->IsZEncoded());
-    writer.addBooleanElement("IsRadial3D", pfile->IsRadial3D());
-    writer.formatElement("PlaneCount", "%d", pfile->PlaneCount());
-    writer.formatElement("OutputPhaseCount", "%d", pfile->OutputPhaseCount());
-    writer.formatElement("ShotCount", "%d", pfile->ShotCount());
-    writer.formatElement("RepetitionCount", "%d", pfile->RepetitionCount());
-    writer.addBooleanElement("IsEpi", pfile->IsEpi());
-    writer.addBooleanElement("IsPerChannelMultiVoxelSpectro", pfile->IsPerChannelMultiVoxelSpectro());
-    writer.addBooleanElement("IsMCSI", pfile->IsMCSI());
-    writer.addBooleanElement("IsSingleVoxel", pfile->IsSingleVoxel());
-    writer.addBooleanElement("IsDiffusionEpi", pfile->IsDiffusionEpi());
-    writer.addBooleanElement("IsMultiPhaseEpi", pfile->IsMultiPhaseEpi());
-    writer.addBooleanElement("IsFunctionalMri", pfile->IsFunctionalMri());
-    writer.addBooleanElement("IsTricks", pfile->IsTricks());
-    writer.addBooleanElement("IsCine", pfile->IsCine());
-    writer.addBooleanElement("IsCalibration", pfile->IsCalibration());
-    writer.addBooleanElement("IsMavric", pfile->IsMavric());
-    //writer.formatElement("NumEpiDiffusionNexes", "%d", pfile->NumEpiDiffusionNexes());
-    writer.addBooleanElement("IsTopDownEpi", pfile->IsTopDownEpi());
-    writer.addBooleanElement("IsBottomUpEpi", pfile->IsBottomUpEpi());
-    //writer.formatElement("NumberOfNexs", "%d", pfile->NumberOfNexs());
-    writer.formatElement("MultiPhaseType", "%d", pfile->MultiPhaseType()); // this is interleaved field
+  GEDicom::StudyPointer study = series->Study();
+  GEDicom::StudyModulePointer studyModule = study->GeneralModule();
+  writer.startElement("Study");
+  writer.formatElement("Number", "%d", studyModule->StudyNumber());
+  writer.formatElement("UID", "%s", studyModule->UID().c_str());
+  writer.formatElement("Description", "%s", studyModule->StudyDescription().c_str());
+  writer.formatElement("Date", "%s", convert_date(studyModule->Date()).c_str());
+  writer.formatElement("Time", "%s", convert_time(studyModule->Time()).c_str());
+  writer.formatElement("ReferringPhysician", "%s", studyModule->ReferringPhysician().c_str());
+  writer.formatElement("AccessionNumber", "%s", studyModule->AccessionNumber().c_str());
+  writer.formatElement("ReadingPhysician", "%s", studyModule->ReadingPhysician().c_str());
+  writer.endElement();
 
-    const GERecon::Legacy::LxDownloadDataPointer lxData = pfile->DownloadData();
+  GEDicom::PatientStudyModulePointer patientStudyModule = study->PatientStudyModule();
+  GEDicom::PatientPointer patient = study->Patient();
+  GEDicom::PatientModulePointer patientModule = patient->GeneralModule();
+  writer.startElement("Patient");
+  writer.formatElement("Name", "%s", patientModule->Name().c_str());
+  writer.formatElement("ID", "%s", patientModule->ID().c_str());
+  writer.formatElement("Birthdate", "%s", convert_date(patientModule->Birthdate()).c_str());
+  writer.formatElement("Gender", "%s", patientModule->Gender().c_str());
+  writer.formatElement("Age", "%s", patientStudyModule->Age().c_str());
+  writer.formatElement("Weight", "%s", patientStudyModule->Weight().c_str());
+  writer.formatElement("History", "%s", patientStudyModule->History().c_str());
+  writer.endElement();
 
-    GERecon::Legacy::DicomSeries legacySeries(lxData);
-    GEDicom::SeriesPointer series = legacySeries.Series();
-    GEDicom::SeriesModulePointer seriesModule = series->GeneralModule();
-    writer.startElement("Series");
-    writer.formatElement("Number", "%d", lxData->SeriesNumber());
-    writer.formatElement("UID", "%s", seriesModule->UID().c_str());
-    writer.formatElement("Description", "%s", seriesModule->SeriesDescription().c_str());
-    //writer.formatElement("Modality", "%s", seriesModule->Modality());
-    writer.formatElement("Laterality", "%s", seriesModule->Laterality().c_str());
-    writer.formatElement("Date", "%s", convert_date(seriesModule->Date()).c_str());
-    writer.formatElement("Time", "%s", convert_time(seriesModule->Time()).c_str());
-    writer.formatElement("ProtocolName", "%s", seriesModule->ProtocolName().c_str());
-    writer.formatElement("OperatorName", "%s", seriesModule->OperatorName().c_str());
-    writer.formatElement("PpsDescription", "%s", seriesModule->PpsDescription().c_str());
-    //writer.formatElement("PatientEntry", "%s", seriesModule->Entry());
-    //writer.formatElement("PatientOrientation", "%s", seriesModule->Orientation());
-    writer.endElement();
+  GEDicom::EquipmentPointer equipment = series->Equipment();
+  GEDicom::EquipmentModulePointer equipmentModule = equipment->GeneralModule();
+  writer.startElement("Equipment");
+  writer.formatElement("Manufacturer", "%s", equipmentModule->Manufacturer().c_str());
+  writer.formatElement("Institution", "%s", equipmentModule->Institution().c_str());
+  writer.formatElement("Station", "%s", equipmentModule->Station().c_str());
+  writer.formatElement("ManufacturerModel", "%s", equipmentModule->ManufacturerModel().c_str());
+  writer.formatElement("DeviceSerialNumber", "%s", equipmentModule->DeviceSerialNumber().c_str());
+  writer.formatElement("SoftwareVersion", "%s", equipmentModule->SoftwareVersion().c_str());
+  writer.formatElement("PpsPerformedStation", "%s", equipmentModule->PpsPerformedStation().c_str());
+  writer.formatElement("PpsPerformedLocation", "%s", equipmentModule->PpsPerformedLocation().c_str());
+  writer.endElement();
 
-    GEDicom::StudyPointer study = series->Study();
-    GEDicom::StudyModulePointer studyModule = study->GeneralModule();
-    writer.startElement("Study");
-    writer.formatElement("Number", "%d", studyModule->StudyNumber());
-    writer.formatElement("UID", "%s", studyModule->UID().c_str());
-    writer.formatElement("Description", "%s", studyModule->StudyDescription().c_str());
-    writer.formatElement("Date", "%s", convert_date(studyModule->Date()).c_str());
-    writer.formatElement("Time", "%s", convert_time(studyModule->Time()).c_str());
-    writer.formatElement("ReferringPhysician", "%s", studyModule->ReferringPhysician().c_str());
-    writer.formatElement("AccessionNumber", "%s", studyModule->AccessionNumber().c_str());
-    writer.formatElement("ReadingPhysician", "%s", studyModule->ReadingPhysician().c_str());
-    writer.endElement();
-
-    GEDicom::PatientStudyModulePointer patientStudyModule = study->PatientStudyModule();
-    GEDicom::PatientPointer patient = study->Patient();
-    GEDicom::PatientModulePointer patientModule = patient->GeneralModule();
-    writer.startElement("Patient");
-    writer.formatElement("Name", "%s", patientModule->Name().c_str());
-    writer.formatElement("ID", "%s", patientModule->ID().c_str());
-    writer.formatElement("Birthdate", "%s", convert_date(patientModule->Birthdate()).c_str());
-    writer.formatElement("Gender", "%s", patientModule->Gender().c_str());
-    writer.formatElement("Age", "%s", patientStudyModule->Age().c_str());
-    writer.formatElement("Weight", "%s", patientStudyModule->Weight().c_str());
-    writer.formatElement("History", "%s", patientStudyModule->History().c_str());
-    writer.endElement();
-
-    GEDicom::EquipmentPointer equipment = series->Equipment();
-    GEDicom::EquipmentModulePointer equipmentModule = equipment->GeneralModule();
-    writer.startElement("Equipment");
-    writer.formatElement("Manufacturer", "%s", equipmentModule->Manufacturer().c_str());
-    writer.formatElement("Institution", "%s", equipmentModule->Institution().c_str());
-    writer.formatElement("Station", "%s", equipmentModule->Station().c_str());
-    writer.formatElement("ManufacturerModel", "%s", equipmentModule->ManufacturerModel().c_str());
-    writer.formatElement("DeviceSerialNumber", "%s", equipmentModule->DeviceSerialNumber().c_str());
-    writer.formatElement("SoftwareVersion", "%s", equipmentModule->SoftwareVersion().c_str());
-    writer.formatElement("PpsPerformedStation", "%s", equipmentModule->PpsPerformedStation().c_str());
-    writer.formatElement("PpsPerformedLocation", "%s", equipmentModule->PpsPerformedLocation().c_str());
-    writer.endElement();
-
-
-    const GERecon::Control::ProcessingControlPointer processingControl(pfile->CreateOrchestraProcessingControl());
-
-    writer.formatElement("AcquiredXRes", "%d", processingControl->Value<int>("AcquiredXRes"));
-    writer.formatElement("AcquiredYRes", "%d", processingControl->Value<int>("AcquiredYRes"));
-    writer.formatElement("AcquiredZRes", "%d", processingControl->Value<int>("AcquiredZRes"));
-    writer.addBooleanElement("Is3DAcquisition", processingControl->Value<bool>("Is3DAcquisition"));
-
-    writer.formatElement("NumBaselineViews", "%d", processingControl->Value<int>("NumBaselineViews"));
-    writer.formatElement("NumVolumes", "%d", processingControl->Value<int>("NumVolumes"));
-    writer.formatElement("NumEchoes", "%d", processingControl->Value<int>("NumEchoes"));
-    writer.addBooleanElement("EvenEchoFrequencyFlip", processingControl->Value<bool>("EvenEchoFrequencyFlip"));
-    writer.addBooleanElement("OddEchoFrequencyFlip", processingControl->Value<bool>("OddEchoFrequencyFlip"));
-    writer.addBooleanElement("EvenEchoPhaseFlip", processingControl->Value<bool>("EvenEchoPhaseFlip"));
-    writer.addBooleanElement("OddEchoPhaseFlip", processingControl->Value<bool>("OddEchoPhaseFlip"));
-    writer.addBooleanElement("HalfEcho", processingControl->Value<bool>("HalfEcho"));
-    writer.addBooleanElement("HalfNex", processingControl->Value<bool>("HalfNex"));
-    writer.addBooleanElement("NoFrequencyWrapData", processingControl->Value<bool>("NoFrequencyWrapData"));
-    writer.addBooleanElement("NoPhaseWrapData", processingControl->Value<bool>("NoPhaseWrapData"));
-    writer.formatElement("NumAcquisitions", "%d", processingControl->Value<int>("NumAcquisitions"));
-    writer.formatElement("NumEchoes", "%d", processingControl->Value<int>("NumEchoes"));
-    writer.formatElement("DataSampleSize", "%d", processingControl->Value<int>("DataSampleSize")); // in bytes
-                                                                                                   // nacq_points = ncoils * frame_size
-
-    
-    GERecon::PatientPosition patientPosition = static_cast<GERecon::PatientPosition>(processingControl->Value<int>("PatientPosition"));
-    
-    switch(patientPosition)
+  const GERecon::Control::ProcessingControlPointer processingControl(pfile->CreateOrchestraProcessingControl());
+  writer.formatElement("AcquiredXRes", "%d", processingControl->Value<int>("AcquiredXRes"));
+  writer.formatElement("AcquiredYRes", "%d", processingControl->Value<int>("AcquiredYRes"));
+  writer.formatElement("AcquiredZRes", "%d", processingControl->Value<int>("AcquiredZRes"));
+  writer.addBooleanElement("Is3DAcquisition", processingControl->Value<bool>("Is3DAcquisition"));
+  writer.formatElement("NumBaselineViews", "%d", processingControl->Value<int>("NumBaselineViews"));
+  writer.formatElement("NumVolumes", "%d", processingControl->Value<int>("NumVolumes"));
+  writer.formatElement("NumEchoes", "%d", processingControl->Value<int>("NumEchoes"));
+  writer.addBooleanElement("EvenEchoFrequencyFlip", processingControl->Value<bool>("EvenEchoFrequencyFlip"));
+  writer.addBooleanElement("OddEchoFrequencyFlip", processingControl->Value<bool>("OddEchoFrequencyFlip"));
+  writer.addBooleanElement("EvenEchoPhaseFlip", processingControl->Value<bool>("EvenEchoPhaseFlip"));
+  writer.addBooleanElement("OddEchoPhaseFlip", processingControl->Value<bool>("OddEchoPhaseFlip"));
+  writer.addBooleanElement("HalfEcho", processingControl->Value<bool>("HalfEcho"));
+  writer.addBooleanElement("HalfNex", processingControl->Value<bool>("HalfNex"));
+  writer.addBooleanElement("NoFrequencyWrapData", processingControl->Value<bool>("NoFrequencyWrapData"));
+  writer.addBooleanElement("NoPhaseWrapData", processingControl->Value<bool>("NoPhaseWrapData"));
+  writer.formatElement("NumAcquisitions", "%d", processingControl->Value<int>("NumAcquisitions"));
+  writer.formatElement("NumEchoes", "%d", processingControl->Value<int>("NumEchoes"));
+  writer.formatElement("DataSampleSize", "%d", processingControl->Value<int>("DataSampleSize")); // in bytes
+  // nacq_points = ncoils * frame_size
+  
+  GERecon::PatientPosition patientPosition = static_cast<GERecon::PatientPosition>(processingControl->Value<int>("PatientPosition"));
+  switch(patientPosition)
     {
     case GERecon::PatientPosition::Supine:
-	    writer.formatElement("PatientPosition", "%s", "HFS");
-            break;
+      writer.formatElement("PatientPosition", "%s", "HFS");
+      break;
     case GERecon::PatientPosition::Prone:
-	    writer.formatElement("PatientPosition", "%s", "HFP");
-            break;
+      writer.formatElement("PatientPosition", "%s", "HFP");
+      break;
     case GERecon::PatientPosition::LeftDescending:
-	    writer.formatElement("PatientPosition", "%s", "HFDL");
-            break;
+      writer.formatElement("PatientPosition", "%s", "HFDL");
+      break;
     case GERecon::PatientPosition::RightDescending:
-	    writer.formatElement("PatientPosition", "%s", "HFDR");
-            break;
+      writer.formatElement("PatientPosition", "%s", "HFDR");
+      break;
     default:
-	    writer.formatElement("PatientPosition", "%s", "HFS");
-            break;
+      writer.formatElement("PatientPosition", "%s", "HFS");
+      break;
     }
-    writer.formatElement("PatientEntry", "%d", processingControl->Value<int>("PatientEntry")); // no PatientEntryAsString function in Orchestra
 
-    writer.formatElement("ScanCenter", "%f", processingControl->Value<int>("ScanCenter"));
-    writer.formatElement("Landmark", "%f", processingControl->Value<int>("Landmark"));
-    writer.formatElement("ExamNumber", "%u", processingControl->Value<int>("ExamNumber"));
-    writer.formatElement("CoilConfigUID", "%u", processingControl->Value<int>("CoilConfigUID"));
-    writer.formatElement("RawPassSize", "%llu", processingControl->Value<int>("RawPassSize"));
+  writer.formatElement("PatientEntry", "%d", processingControl->Value<int>("PatientEntry")); // no PatientEntryAsString function in Orchestra
 
-    // see AcquisitionParameters documentation for more boolean parameters
+  writer.formatElement("ScanCenter", "%f", processingControl->Value<int>("ScanCenter"));
+  writer.formatElement("Landmark", "%f", processingControl->Value<int>("Landmark"));
+  writer.formatElement("ExamNumber", "%u", processingControl->Value<int>("ExamNumber"));
+  writer.formatElement("CoilConfigUID", "%u", processingControl->Value<int>("CoilConfigUID"));
+  //writer.formatElement("RawPassSize", "%llu", processingControl->Value<int>("RawPassSize"));
+  
+  // see AcquisitionParameters documentation for more boolean parameters
 
-    // ReconstructionParameters
-    writer.addBooleanElement("CreateMagnitudeImages", processingControl->Value<bool>("CreateMagnitudeImages"));
-    writer.addBooleanElement("CreatePhaseImages", processingControl->Value<bool>("CreatePhaseImages"));
+  // ReconstructionParameters
+  writer.addBooleanElement("CreateMagnitudeImages", processingControl->Value<bool>("CreateMagnitudeImages"));
+  writer.addBooleanElement("CreatePhaseImages", processingControl->Value<bool>("CreatePhaseImages"));
 
-    writer.formatElement("TransformXRes", "%d", processingControl->Value<int>("TransformXRes"));
-    writer.formatElement("TransformYRes", "%d", processingControl->Value<int>("TransformYRes"));
-    writer.formatElement("TransformZRes", "%d", processingControl->Value<int>("TransformZRes"));
+  writer.formatElement("TransformXRes", "%d", processingControl->Value<int>("TransformXRes"));
+  writer.formatElement("TransformYRes", "%d", processingControl->Value<int>("TransformYRes"));
+  writer.formatElement("TransformZRes", "%d", processingControl->Value<int>("TransformZRes"));
 
-    writer.addBooleanElement("ChopX", processingControl->Value<bool>("ChopX"));
-    writer.addBooleanElement("ChopY", processingControl->Value<bool>("ChopY"));
-    writer.addBooleanElement("ChopZ", processingControl->Value<bool>("ChopZ"));
+  writer.addBooleanElement("ChopX", processingControl->Value<bool>("ChopX"));
+  writer.addBooleanElement("ChopY", processingControl->Value<bool>("ChopY"));
+  writer.addBooleanElement("ChopZ", processingControl->Value<bool>("ChopZ"));
+  
+  // TODO: map SliceOrder to a string
+  // writer.formatElement("SliceOrder", "%s", processingControl->Value<int>("SliceOrder"));
+  
+  // Image Parameters
+  // writer.formatElement("ImageXRes", "%d", processingControl->Value<int>("ImageXRes"));
+  // writer.formatElement("ImageYRes", "%d", processingControl->Value<int>("ImageYRes"));
 
-    // TODO: map SliceOrder to a string
-    // writer.formatElement("SliceOrder", "%s", processingControl->Value<int>("SliceOrder"));
+  GERecon::PrepData prepData(lxData);
+  GERecon::ArchiveHeader archiveHeader("ScanArchive", prepData);
+  // DEBUG: archiveHeader.Print(std::cout);
 
-    // Image Parameters
-    // writer.formatElement("ImageXRes", "%d", processingControl->Value<int>("ImageXRes"));
-    // writer.formatElement("ImageYRes", "%d", processingControl->Value<int>("ImageYRes"));
-
-
-    GERecon::PrepData prepData(lxData);
-    GERecon::ArchiveHeader archiveHeader("ScanArchive", prepData);
-    // DEBUG: archiveHeader.Print(std::cout);
-
-    auto sliceOrientation = pfile->Orientation(0);
-    auto sliceCorners = pfile->Corners(0);
-    auto imageCorners = GERecon::ImageCorners(sliceCorners, sliceOrientation);
-    auto grayscaleImage = GEDicom::GrayscaleImage(128, 128);
-    auto dicomImage = GERecon::Legacy::DicomImage(grayscaleImage, 0, imageCorners, series, *lxData);
-    auto imageModule = dicomImage.ImageModule();
-
-    writer.startElement("Image");
-    writer.formatElement("EchoTime", "%s", imageModule->EchoTime().c_str());
-    writer.formatElement("RepetitionTime", "%s", imageModule->RepetitionTime().c_str());
-    if (imageModule->InversionTime().length() > 0)
-	    writer.formatElement("InversionTime", "%s", imageModule->InversionTime().c_str());
-    else
-      writer.writeElement("InversionTime", "0");
-    writer.formatElement("ImageType", "%s", imageModule->ImageType().c_str());
-    writer.formatElement("ScanSequence", "%s", imageModule->ScanSequence().c_str());
-    writer.formatElement("SequenceVariant", "%s", imageModule->SequenceVariant().c_str());
-    writer.formatElement("ScanOptions", "%s", imageModule->ScanOptions().c_str());
-    writer.formatElement("AcquisitionType", "%d", imageModule->AcqType());
-    writer.formatElement("PhaseEncodeDirection", "%d", imageModule->PhaseEncodeDirection());
-    writer.formatElement("ImagingFrequency", "%s", imageModule->ImagingFrequency().c_str());
-    writer.formatElement("MagneticFieldStrength", "%s", imageModule->MagneticFieldStrength().c_str());
-    writer.formatElement("SliceSpacing", "%s", imageModule->SliceSpacing().c_str());
-    writer.formatElement("FlipAngle", "%s", imageModule->FlipAngle().c_str());
-    writer.formatElement("EchoTrainLength", "%s", imageModule->EchoTrainLength().c_str());
-
-    auto imageModuleBase = dicomImage.ImageModuleBase();
-    writer.formatElement("AcquisitionDate", "%s", convert_date(imageModuleBase->AcquisitionDate()).c_str());
-    writer.formatElement("AcquisitionTime", "%s", convert_time(imageModuleBase->AcquisitionTime()).c_str());
-    writer.formatElement("ImageDate", "%s", convert_date(imageModuleBase->ImageDate()).c_str());
-    writer.formatElement("ImageTime", "%s", convert_time(imageModuleBase->ImageTime()).c_str());
-
-    auto imagePlaneModule = dicomImage.ImagePlaneModule();
-    writer.formatElement("ImageOrientation", "%s", imagePlaneModule->ImageOrientation().c_str());
-    writer.formatElement("ImagePosition", "%s", imagePlaneModule->ImagePosition().c_str());
-    writer.formatElement("SliceThickness", "%f", imagePlaneModule->SliceThickness());
-    writer.formatElement("SliceLocation", "%f", imagePlaneModule->SliceLocation());
-    writer.formatElement("PixelSizeX", "%f", imagePlaneModule->PixelSizeX());
-    writer.formatElement("PixelSizeY", "%f", imagePlaneModule->PixelSizeY());
-
-    auto privateAcquisitionModule = dicomImage.PrivateAcquisitionModule();
-    writer.formatElement("SecondEcho", "%s", privateAcquisitionModule->SecondEcho().c_str());
-
-    writer.endElement();
-
+  auto sliceOrientation = pfile->Orientation(0);
+  auto sliceCorners = pfile->Corners(0);
+  auto imageCorners = GERecon::ImageCorners(sliceCorners, sliceOrientation);
+  auto grayscaleImage = GEDicom::GrayscaleImage(128, 128);
+  auto dicomImage = GERecon::Legacy::DicomImage(grayscaleImage, 0, imageCorners, series, *lxData);
+  auto imageModule = dicomImage.ImageModule();
+  
+  writer.startElement("Image");
+  writer.formatElement("EchoTime", "%s", imageModule->EchoTime().c_str());
+  writer.formatElement("RepetitionTime", "%s", imageModule->RepetitionTime().c_str());
+  if (imageModule->InversionTime().length() > 0)
+    writer.formatElement("InversionTime", "%s", imageModule->InversionTime().c_str());
+  else
+    writer.writeElement("InversionTime", "0");
+  writer.formatElement("ImageType", "%s", imageModule->ImageType().c_str());
+  writer.formatElement("ScanSequence", "%s", imageModule->ScanSequence().c_str());
+  writer.formatElement("SequenceVariant", "%s", imageModule->SequenceVariant().c_str());
+  writer.formatElement("ScanOptions", "%s", imageModule->ScanOptions().c_str());
+  writer.formatElement("AcquisitionType", "%d", imageModule->AcqType());
+  writer.formatElement("PhaseEncodeDirection", "%d", imageModule->PhaseEncodeDirection());
+  writer.formatElement("ImagingFrequency", "%s", imageModule->ImagingFrequency().c_str());
+  writer.formatElement("MagneticFieldStrength", "%s", imageModule->MagneticFieldStrength().c_str());
+  writer.formatElement("SliceSpacing", "%s", imageModule->SliceSpacing().c_str());
+  writer.formatElement("FlipAngle", "%s", imageModule->FlipAngle().c_str());
+  writer.formatElement("EchoTrainLength", "%s", imageModule->EchoTrainLength().c_str());
+  
+  auto imageModuleBase = dicomImage.ImageModuleBase();
+  writer.formatElement("AcquisitionDate", "%s", convert_date(imageModuleBase->AcquisitionDate()).c_str());
+  writer.formatElement("AcquisitionTime", "%s", convert_time(imageModuleBase->AcquisitionTime()).c_str());
+  writer.formatElement("ImageDate", "%s", convert_date(imageModuleBase->ImageDate()).c_str());
+  writer.formatElement("ImageTime", "%s", convert_time(imageModuleBase->ImageTime()).c_str());
+  
+  auto imagePlaneModule = dicomImage.ImagePlaneModule();
+  writer.formatElement("ImageOrientation", "%s", imagePlaneModule->ImageOrientation().c_str());
+  writer.formatElement("ImagePosition", "%s", imagePlaneModule->ImagePosition().c_str());
+  writer.formatElement("SliceThickness", "%f", imagePlaneModule->SliceThickness());
+  writer.formatElement("SliceLocation", "%f", imagePlaneModule->SliceLocation());
+  writer.formatElement("PixelSizeX", "%f", imagePlaneModule->PixelSizeX());
+  writer.formatElement("PixelSizeY", "%f", imagePlaneModule->PixelSizeY());
+  
+  auto privateAcquisitionModule = dicomImage.PrivateAcquisitionModule();
+  writer.formatElement("SecondEcho", "%s", privateAcquisitionModule->SecondEcho().c_str());
+  
+  writer.endElement();
+    
     // Old fields from headers:
 
     // TODO: scan_type field
