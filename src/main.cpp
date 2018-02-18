@@ -19,7 +19,7 @@ int main (int argc, char *argv[])
 {
   GESystem::Main(argc, argv);
   std::string classname, stylesheet, pfile, outfile;
-  std::string usage("pfile2ismrmrd [options] <input P-File>");
+  std::string usage("ox2ismrmrd [options] <input file>");
 
   po::options_description basic("Basic Options");
   basic.add_options()
@@ -33,7 +33,7 @@ int main (int argc, char *argv[])
 
   po::options_description input("Input Options");
   input.add_options()
-    ("input,i", po::value<std::string>(&pfile), "input P-File")
+    ("input,i", po::value<std::string>(&pfile), "input file (PFile or ScanArchive)")
     ;
 
   po::options_description all_options("Options");
@@ -72,9 +72,9 @@ int main (int argc, char *argv[])
   }
     
   // Create a new Converter
-  std::shared_ptr<PfileToIsmrmrd::GERawConverter> converter;
+  std::shared_ptr<OxToIsmrmrd::GERawConverter> converter;
   try {
-    converter = std::make_shared<PfileToIsmrmrd::GERawConverter>(pfile, verbose);
+    converter = std::make_shared<OxToIsmrmrd::GERawConverter>(pfile, verbose);
   } catch (const std::exception& e) {
     std::cerr << "Failed to instantiate converter: " << e.what() << std::endl;
     return EXIT_FAILURE;

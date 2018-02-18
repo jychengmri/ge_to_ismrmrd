@@ -33,7 +33,7 @@
 #include "GenericConverter.h"
 
 
-namespace PfileToIsmrmrd {
+namespace OxToIsmrmrd {
 
 const std::string g_schema = "\
 <?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>                \
@@ -95,9 +95,16 @@ GERawConverter::GERawConverter(const std::string& pfilepath, bool logging)
   log_ << "PSDName: " << psdname_ << std::endl;
 
   // Using Orchestra
-  pfile_ = GERecon::Legacy::Pfile::Create(pfilepath,
-                                          GERecon::Legacy::Pfile::AllAvailableAcquisitions,
-                                          GERecon::AnonymizationPolicy(GERecon::AnonymizationPolicy::None));
+  if (GERecon::ScanArchive::IsArchiveFilePath(pfilepath)) {
+    m_scanArchive = GERecon::ScanArchive::Create(pfilepath, GESystem::Archive::LoadMode);
+    throw std::runtime_error("ScanArchive is not yet supported!");
+  }
+  else {
+    pfile_ = GERecon::Legacy::Pfile::Create(
+      pfilepath,
+      GERecon::Legacy::Pfile::AllAvailableAcquisitions,
+      GERecon::AnonymizationPolicy(GERecon::AnonymizationPolicy::None));
+  }
 
   converter_ = std::shared_ptr<SequenceConverter>(new GenericConverter());
 }
@@ -657,5 +664,5 @@ static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile)
     return writer.getXML();
 }
 
-} // namespace PfileToIsmrmrd
+} // namespace OxToIsmrmrd
 

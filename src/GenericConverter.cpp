@@ -14,7 +14,7 @@
 #include <Orchestra/Legacy/Pfile.h>
 #include <Orchestra/Legacy/PoolHeader/HeaderMap.h>
 
-namespace PfileToIsmrmrd {
+namespace OxToIsmrmrd {
 
 int GenericConverter::get_view_idx(GERecon::Legacy::Pfile *pfile,
         unsigned int view_num, ISMRMRD::EncodingCounters &idx)
@@ -94,8 +94,6 @@ boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > GenericConverter::getKSpac
     noiseValues(i_channel) = prescanHeader.rec_std[i_channel];
   recWeight = 1.0f / MDArray::pow(noiseValues, 2);
   recWeight = MDArray::sqrt(recWeight / MDArray::sum(recWeight));
-
-  //const MDArray::FloatVector channelWeights = processingControl->Value<FloatVector>("ChannelWeights");
  
   // Orchestra API provides size in bytes.
   // Pfile is stored as (readout, views, echoes, slice, channel)

@@ -9,24 +9,17 @@
 // ISMRMRD
 #include "ismrmrd/ismrmrd.h"
 
-namespace PfileToIsmrmrd {
+namespace OxToIsmrmrd {
 
-/*
-#define PLUGIN_DEBUG(v) \
-    do { \
-        cout << #v ": " << v << endl; \
-    } while (0)
-*/
 #define PLUGIN_DEBUG(v)
-
 enum { PLUGIN_FAILURE = -1, PLUGIN_SUCCESS = 1 };
 
-class SequenceConverter
-{
-public:
+  class SequenceConverter
+  {
+  public:
     SequenceConverter() { }
     virtual ~SequenceConverter() { }
-
+    
     /**
      * Create the ISMRMRD acquisitions corresponding to a given view in memory
      *
@@ -34,31 +27,33 @@ public:
      * @param view_num View number
      * @returns vector of ISMRMRD::Acquisitions
      */
-    virtual std::vector<ISMRMRD::Acquisition> getAcquisitions(GERecon::Legacy::Pfile* pfile, unsigned int view_num) = 0;
+    virtual std::vector<ISMRMRD::Acquisition> getAcquisitions(GERecon::Legacy::Pfile* pfile,
+                                                              unsigned int view_num) = 0;
 
-    virtual boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > getKSpaceMatrix(GERecon::Legacy::Pfile* pfile,
-                                                                                  unsigned int i_echo,
-                                                                                  unsigned int i_phase) = 0;
-};
+    virtual boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > getKSpaceMatrix(
+      GERecon::Legacy::Pfile* pfile,
+      unsigned int i_echo,
+      unsigned int i_phase) = 0;
+  };
 
 
 // This MACRO goes in the Sequence header file
-#define SEQUENCE_CONVERTER_DECLARE(SEQ)                     \
-    SEQ () : PfileToIsmrmrd::SequenceConverter() {}
+#define SEQUENCE_CONVERTER_DECLARE(SEQ)                 \
+  SEQ () : OxToIsmrmrd::SequenceConverter() {}
 
 // This MACRO goes at the end of the Sequence source file
 #define SEQUENCE_CONVERTER_FACTORY_DECLARE(SEQ)             \
                                                             \
-extern "C" PfileToIsmrmrd::SequenceConverter * make_##SEQ ()                \
-{                                                           \
+  extern "C" OxToIsmrmrd::SequenceConverter * make_##SEQ () \
+  {                                                         \
     return new SEQ();                                       \
-}                                                           \
+  }                                                         \
                                                             \
-extern "C" void destroy_##SEQ (PfileToIsmrmrd::SequenceConverter *s)        \
-{                                                           \
-    delete s;                                               \
-}
+  extern "C" void destroy_##SEQ (OxToIsmrmrd::SequenceConverter *s)     \
+  {                                                                     \
+    delete s;                                                           \
+  }
 
-} // namespace PfileToIsmrmrd
+} // namespace OxToIsmrmrd
 
 #endif /* SEQUENCE_CONVERTER_H */
