@@ -15,6 +15,7 @@
 
 #include <Orchestra/Control/ProcessingControl.h>
 #include <Orchestra/Legacy/Pfile.h>
+#include <Orchestra/Legacy/LegacyRdbm.h>
 #include <Orchestra/Legacy/DicomSeries.h>
 #include <Dicom/MR/Image.h>
 #include <Dicom/MR/ImageModule.h>
@@ -438,12 +439,15 @@ static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile)
   //writer.formatElement("NumberOfNexs", "%d", pfile->NumberOfNexs());
   writer.formatElement("MultiPhaseType", "%d", pfile->MultiPhaseType()); // this is interleaved field
 
-  const GERecon::Legacy::LxDownloadDataPointer lxData = pfile->DownloadData();
-  GERecon::Legacy::DicomSeries legacySeries(lxData);
+  const GERecon::Legacy::LxDownloadDataPointer lxDataPtr = pfile->DownloadData();
+  const GERecon::Legacy::LxDownloadData& lxData = *pfile->DownloadData();
+  auto rdbHeader = lxData.RawHeader();
+    
+  GERecon::Legacy::DicomSeries legacySeries(lxDataPtr);
   GEDicom::SeriesPointer series = legacySeries.Series();
   GEDicom::SeriesModulePointer seriesModule = series->GeneralModule();
   writer.startElement("Series");
-  writer.formatElement("Number", "%d", lxData->SeriesNumber());
+  writer.formatElement("Number", "%d", lxDataPtr->SeriesNumber());
   writer.formatElement("UID", "%s", seriesModule->UID().c_str());
   writer.formatElement("Description", "%s", seriesModule->SeriesDescription().c_str());
   //writer.formatElement("Modality", "%s", seriesModule->Modality());
@@ -515,30 +519,27 @@ static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile)
   writer.formatElement("NumAcquisitions", "%d", processingControl->Value<int>("NumAcquisitions"));
   writer.formatElement("NumEchoes", "%d", processingControl->Value<int>("NumEchoes"));
   writer.formatElement("DataSampleSize", "%d", processingControl->Value<int>("DataSampleSize")); // in bytes
-  // nacq_points = ncoils * frame_size
   
   GERecon::PatientPosition patientPosition = static_cast<GERecon::PatientPosition>(processingControl->Value<int>("PatientPosition"));
-  switch(patientPosition)
-    {
-    case GERecon::PatientPosition::Supine:
-      writer.formatElement("PatientPosition", "%s", "HFS");
-      break;
-    case GERecon::PatientPosition::Prone:
-      writer.formatElement("PatientPosition", "%s", "HFP");
-      break;
-    case GERecon::PatientPosition::LeftDescending:
-      writer.formatElement("PatientPosition", "%s", "HFDL");
-      break;
-    case GERecon::PatientPosition::RightDescending:
-      writer.formatElement("PatientPosition", "%s", "HFDR");
-      break;
-    default:
-      writer.formatElement("PatientPosition", "%s", "HFS");
-      break;
-    }
+  switch(patientPosition) {
+  case GERecon::PatientPosition::Supine:
+    writer.formatElement("PatientPosition", "%s", "HFS");
+    break;
+  case GERecon::PatientPosition::Prone:
+    writer.formatElement("PatientPosition", "%s", "HFP");
+    break;
+  case GERecon::PatientPosition::LeftDescending:
+    writer.formatElement("PatientPosition", "%s", "HFDL");
+    break;
+  case GERecon::PatientPosition::RightDescending:
+    writer.formatElement("PatientPosition", "%s", "HFDR");
+    break;
+  default:
+    writer.formatElement("PatientPosition", "%s", "HFS");
+    break;
+  }
 
-  writer.formatElement("PatientEntry", "%d", processingControl->Value<int>("PatientEntry")); // no PatientEntryAsString function in Orchestra
-
+  writer.formatElement("PatientEntry", "%d", processingControl->Value<int>("PatientEntry"));
   writer.formatElement("ScanCenter", "%f", processingControl->Value<int>("ScanCenter"));
   writer.formatElement("Landmark", "%f", processingControl->Value<int>("Landmark"));
   writer.formatElement("ExamNumber", "%u", processingControl->Value<int>("ExamNumber"));
@@ -566,7 +567,7 @@ static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile)
   // writer.formatElement("ImageXRes", "%d", processingControl->Value<int>("ImageXRes"));
   // writer.formatElement("ImageYRes", "%d", processingControl->Value<int>("ImageYRes"));
 
-  GERecon::PrepData prepData(lxData);
+  GERecon::PrepData prepData(lxDataPtr);
   GERecon::ArchiveHeader archiveHeader("ScanArchive", prepData);
   // DEBUG: archiveHeader.Print(std::cout);
 
@@ -574,16 +575,16 @@ static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile)
   auto sliceCorners = pfile->Corners(0);
   auto imageCorners = GERecon::ImageCorners(sliceCorners, sliceOrientation);
   auto grayscaleImage = GEDicom::GrayscaleImage(128, 128);
-  auto dicomImage = GERecon::Legacy::DicomImage(grayscaleImage, 0, imageCorners, series, *lxData);
+  auto dicomImage = GERecon::Legacy::DicomImage(grayscaleImage, 0, imageCorners, series, *lxDataPtr);
   auto imageModule = dicomImage.ImageModule();
   
   writer.startElement("Image");
   writer.formatElement("EchoTime", "%s", imageModule->EchoTime().c_str());
+  if (pfile->EchoCount() > 1)
+    writer.formatElement("EchoTime2", "%g", 1e-3 * ((float) rdbHeader.rdb_hdr_te2));
   writer.formatElement("RepetitionTime", "%s", imageModule->RepetitionTime().c_str());
   if (imageModule->InversionTime().length() > 0)
     writer.formatElement("InversionTime", "%s", imageModule->InversionTime().c_str());
-  else
-    writer.writeElement("InversionTime", "0");
   writer.formatElement("ImageType", "%s", imageModule->ImageType().c_str());
   writer.formatElement("ScanSequence", "%s", imageModule->ScanSequence().c_str());
   writer.formatElement("SequenceVariant", "%s", imageModule->SequenceVariant().c_str());

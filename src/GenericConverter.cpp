@@ -6,7 +6,13 @@
 #include <sstream>
 
 #include "GenericConverter.h"
+
+#include <Orchestra/Legacy/LegacyImageDB.h>
+#include <Orchestra/Legacy/LegacyRdbm.h>
+#include <Orchestra/Legacy/LxControlSource.h>
+#include <Orchestra/Legacy/LegacyForwardDeclarations.h>
 #include <Orchestra/Legacy/Pfile.h>
+#include <Orchestra/Legacy/PoolHeader/HeaderMap.h>
 
 namespace PfileToIsmrmrd {
 
@@ -70,8 +76,8 @@ boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > GenericConverter::getKSpac
   GERecon::Legacy::Pfile* pfile, unsigned int i_echo, unsigned int i_phase)
 {
   const GERecon::Control::ProcessingControlPointer processingControl(pfile->CreateOrchestraProcessingControl());
-  //const GERecon::Legacy::LxDownloadData& downloadData = *pfile->DownloadData();
-  //const GERecon::Legacy::RdbHeaderRec& rdbHeader = downloadData.RawHeader();
+  const GERecon::Legacy::LxDownloadData& downloadData = *pfile->DownloadData();
+  const GERecon::Legacy::PrescanHeaderStruct& prescanHeader = downloadData.PrescanHeader();
   
   unsigned int lenFrame = (unsigned int)processingControl->Value<int>("AcquiredXRes");
   unsigned int numViews = (unsigned int)processingControl->Value<int>("AcquiredYRes");
@@ -80,6 +86,15 @@ boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > GenericConverter::getKSpac
 
   std::vector<size_t> dims = {lenFrame, numViews, numSlices, numChannels};
   boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > kSpaceMatrix (new ISMRMRD::NDArray<complex_float_t>(dims));
+
+  // Get noise statistics to pre-whiten the data
+  MDArray::FloatVector noiseValues(numChannels);
+  MDArray::FloatVector recWeight(numChannels);
+  for (unsigned int i_channel = 0; i_channel < numChannels; i_channel++)
+    noiseValues(i_channel) = prescanHeader.rec_std[i_channel];
+  recWeight = 1.0f / MDArray::pow(noiseValues, 2);
+  recWeight = MDArray::sqrt(recWeight / MDArray::sum(recWeight));
+
   //const MDArray::FloatVector channelWeights = processingControl->Value<FloatVector>("ChannelWeights");
  
   // Orchestra API provides size in bytes.
@@ -100,15 +115,15 @@ boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > GenericConverter::getKSpac
 
       for (unsigned int i_view = 0; i_view < numViews; i_view++) {
         for (unsigned int i = 0 ; i < lenFrame ; i++)
-          (*kSpaceMatrix)(i, i_view, i_slice, i_channel) = kSpace((int)i, (int)i_view);
+          (*kSpaceMatrix)(i, i_view, i_slice, i_channel) = kSpace((int)i, (int)i_view) * recWeight(i_channel);
           
       } // for (i_view)
     } // for (i_slice)
   } // for (i_channel)
 
   return kSpaceMatrix;
-
-  }
+  
+}
 
 std::vector<ISMRMRD::Acquisition> GenericConverter::getAcquisitions(
         GERecon::Legacy::Pfile* pfile, unsigned int acq_mode)

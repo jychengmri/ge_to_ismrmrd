@@ -21,26 +21,27 @@
       <!--   <patientGender><xsl:value-of select="Header/Patient/Gender"/></patientGender> -->
       <!-- </subjectInformation> -->
 
-      <!-- <studyInformation> -->
-      <!--   <studyDate><xsl:value-of select="Header/Study/Date"/></studyDate> -->
-      <!--   <studyTime><xsl:value-of select="Header/Study/Time"/></studyTime> -->
-      <!--   <studyID><xsl:value-of select="Header/Study/Number"/></studyID> -->
-      <!--   <accessionNumber><xsl:value-of select="Header/Study/AccessionNumber"/></accessionNumber> -->
-      <!--   <xsl:if test="Header/Study/ReferringPhysician != ''"> -->
-      <!--       <referringPhysicianName><xsl:value-of select="Header/Study/ReferringPhysician"/></referringPhysicianName> -->
-      <!--   </xsl:if> -->
-      <!--   <xsl:if test="Header/Study/Description != ''"> -->
-      <!--       <studyDescription><xsl:value-of select="Header/Study/Description"/></studyDescription> -->
-      <!--   </xsl:if> -->
-      <!--   <studyInstanceUID><xsl:value-of select="Header/Study/UID"/></studyInstanceUID> -->
-      <!-- </studyInformation> -->
+      <studyInformation>
+        <studyID><xsl:value-of select="Header/Equipment/ExamNumber"/></studyID>
+        <!--   <studyDate><xsl:value-of select="Header/Study/Date"/></studyDate> -->
+        <!--   <studyTime><xsl:value-of select="Header/Study/Time"/></studyTime> -->
+        <!-- <studyID><xsl:value-of select="Header/Study/Number"/></studyID> -->
+        <!--   <accessionNumber><xsl:value-of select="Header/Study/AccessionNumber"/></accessionNumber> -->
+        <!--   <xsl:if test="Header/Study/ReferringPhysician != ''"> -->
+        <!--       <referringPhysicianName><xsl:value-of select="Header/Study/ReferringPhysician"/></referringPhysicianName> -->
+        <!--   </xsl:if> -->
+        <!--   <xsl:if test="Header/Study/Description != ''"> -->
+        <!--       <studyDescription><xsl:value-of select="Header/Study/Description"/></studyDescription> -->
+        <!--   </xsl:if> -->
+        <!--   <studyInstanceUID><xsl:value-of select="Header/Study/UID"/></studyInstanceUID> -->
+      </studyInformation>
 
       <measurementInformation>
         <!-- <measurementID><xsl:value-of select="Header/Series/Number"/></measurementID> -->
         <!-- <seriesDate><xsl:value-of select="Header/Series/Date"/></seriesDate> -->
         <!-- <seriesTime><xsl:value-of select="Header/Series/Time"/></seriesTime> -->
         <patientPosition><xsl:value-of select="Header/PatientPosition"/></patientPosition>
-        <!-- <initialSeriesNumber><xsl:value-of select="Header/Series/Number"/></initialSeriesNumber> -->
+        <initialSeriesNumber><xsl:value-of select="Header/Series/Number"/></initialSeriesNumber>
         <protocolName><xsl:value-of select="Header/Series/ProtocolName"/></protocolName>
         <seriesDescription><xsl:value-of select="Header/Series/Description"/></seriesDescription>
         <!-- <seriesInstanceUIDRoot><xsl:value-of select="Header/Series/UID"/></seriesInstanceUIDRoot> -->
@@ -76,18 +77,25 @@
             <y><xsl:value-of select="Header/AcquiredYRes"/></y>
             <xsl:choose>
               <xsl:when test="(Header/Is3DAcquisition)='true' and (Header/IsZEncoded)='true'">
-                   <z><xsl:value-of select="Header/AcquiredZRes"/></z>
-                </xsl:when>
-                <xsl:otherwise>
-                   <z><xsl:value-of select="1"/></z>
-                </xsl:otherwise>
+                <z><xsl:value-of select="Header/AcquiredZRes"/></z>
+              </xsl:when>
+              <xsl:otherwise>
+                <z><xsl:value-of select="1"/></z>
+              </xsl:otherwise>
             </xsl:choose>
           </matrixSize>
           <fieldOfView_mm>
             <x><xsl:value-of select="Header/TransformXRes * Header/Image/PixelSizeX"/></x>
             <y><xsl:value-of select="Header/TransformYRes * Header/Image/PixelSizeY"/></y>
             <!-- <z><xsl:value-of select="Header/Image/SliceThickness + Header/Image/SliceSpacing"/></z> -->
-            <z><xsl:value-of select="Header/Image/SliceThickness"/></z>
+            <xsl:choose>
+              <xsl:when test="(Header/Is3DAcquisition)='true' and (Header/IsZEncoded)='true'">
+                <z><xsl:value-of select="Header/Image/SliceThickness * Header/AcquiredZRes"/></z>
+              </xsl:when>
+              <xsl:otherwise>
+                <z><xsl:value-of select="Header/Image/SliceThickness"/></z>
+              </xsl:otherwise>
+            </xsl:choose>
           </fieldOfView_mm>
         </encodedSpace>
         <reconSpace>
@@ -106,8 +114,14 @@
           <fieldOfView_mm>
             <x><xsl:value-of select="Header/TransformXRes * Header/Image/PixelSizeX"/></x>
             <y><xsl:value-of select="Header/TransformYRes * Header/Image/PixelSizeY"/></y>
-            <!-- <z><xsl:value-of select="Header/Image/SliceThickness + Header/Image/SliceSpacing"/></z> -->
-            <z><xsl:value-of select="Header/Image/SliceSpacing"/></z>
+            <xsl:choose>
+              <xsl:when test="(Header/Is3DAcquisition)='true' and (Header/IsZEncoded)='true'">
+                <z><xsl:value-of select="Header/Image/SliceThickness * Header/AcquiredZRes"/></z>
+              </xsl:when>
+              <xsl:otherwise>
+                <z><xsl:value-of select="Header/Image/SliceThickness"/></z>
+              </xsl:otherwise>
+            </xsl:choose>
           </fieldOfView_mm>
         </reconSpace>
         <encodingLimits>
@@ -179,7 +193,15 @@
       <sequenceParameters>
         <TR><xsl:value-of select="Header/Image/RepetitionTime"/></TR>
         <TE><xsl:value-of select="Header/Image/EchoTime"/></TE>
-        <TI><xsl:value-of select="Header/Image/InversionTime"/></TI>
+        <xsl:if test="Header/Image/EchoTime2">
+          <TE2><xsl:value-of select="Header/Image/EchoTime2"/></TE2>
+        </xsl:if>
+        <xsl:if test="Header/Image/EchoTime3">
+          <TE3><xsl:value-of select="Header/Image/EchoTime3"/></TE3>
+        </xsl:if>
+        <xsl:if test="Header/Image/InversionTime">
+          <TI><xsl:value-of select="Header/Image/InversionTime"/></TI>
+        </xsl:if>
         <flipAngle_deg><xsl:value-of select="Header/Image/FlipAngle"/></flipAngle_deg>
       </sequenceParameters>
 
