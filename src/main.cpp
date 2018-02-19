@@ -18,7 +18,7 @@ namespace po = boost::program_options;
 int main (int argc, char *argv[])
 {
   GESystem::Main(argc, argv);
-  std::string classname, stylesheet, pfile, outfile;
+  std::string classname, stylesheet, inputFileName, outputFileName;
   std::string usage("ox2ismrmrd [options] <input file>");
 
   po::options_description basic("Basic Options");
@@ -26,14 +26,14 @@ int main (int argc, char *argv[])
     ("help,h", "print help message")
     ("verbose,v", "enable verbose mode")
     ("stylesheet,x", po::value<std::string>(&stylesheet)->default_value(""), "XSL stylesheet file")
-    ("output,o", po::value<std::string>(&outfile)->default_value("testdata.h5"), "output HDF5 file")
+    ("output,o", po::value<std::string>(&outputFileName)->default_value("testdata.h5"), "output HDF5 file")
     ("rdsfile,r", "P-File from the RDS client")
     ("string,s", "only print the HDF5 XML header")
     ;
 
   po::options_description input("Input Options");
   input.add_options()
-    ("input,i", po::value<std::string>(&pfile), "input file (PFile or ScanArchive)")
+    ("input,i", po::value<std::string>(&inputFileName), "input file (InputFileName or ScanArchive)")
     ;
 
   po::options_description all_options("Options");
@@ -61,7 +61,7 @@ int main (int argc, char *argv[])
     return EXIT_SUCCESS;
   }
 
-  if (pfile.size() == 0) {
+  if (inputFileName.size() == 0) {
     std::cerr << usage << std::endl;
     return EXIT_FAILURE;
   }
@@ -74,7 +74,7 @@ int main (int argc, char *argv[])
   // Create a new Converter
   std::shared_ptr<OxToIsmrmrd::GERawConverter> converter;
   try {
-    converter = std::make_shared<OxToIsmrmrd::GERawConverter>(pfile, verbose);
+    converter = std::make_shared<OxToIsmrmrd::GERawConverter>(inputFileName, verbose);
   } catch (const std::exception& e) {
     std::cerr << "Failed to instantiate converter: " << e.what() << std::endl;
     return EXIT_FAILURE;
@@ -109,9 +109,9 @@ int main (int argc, char *argv[])
     std::cout << xml_header << std::endl;
     return EXIT_SUCCESS;
   }
-
+  
   // create hdf5 file
-  ISMRMRD::Dataset d(outfile.c_str(), "dataset", true);
+  ISMRMRD::Dataset d(outputFileName.c_str(), "dataset", true);
 
   // write the ISMRMRD header to the dataset
   d.writeHeader(xml_header);

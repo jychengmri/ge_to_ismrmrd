@@ -56,11 +56,12 @@
       </measurementInformation>
 
       <acquisitionSystemInformation>
-          <systemVendor><xsl:value-of select="Header/Equipment/Manufacturer"/></systemVendor>
-          <systemModel><xsl:value-of select="Header/Equipment/ManufacturerModel"/></systemModel>
-          <systemFieldStrength_T><xsl:value-of select="Header/Image/MagneticFieldStrength"/></systemFieldStrength_T>
+        <systemVendor><xsl:value-of select="Header/Equipment/Manufacturer"/></systemVendor>
+        <systemModel><xsl:value-of select="Header/Equipment/ManufacturerModel"/></systemModel>
+        <systemFieldStrength_T><xsl:value-of select="Header/Image/MagneticFieldStrength"/></systemFieldStrength_T>
         <relativeReceiverNoiseBandwidth>1.0</relativeReceiverNoiseBandwidth>
-        <receiverChannels><xsl:value-of select="Header/ChannelCount"/></receiverChannels>
+        <receiverChannels><xsl:value-of select="Header/NumChannels"/></receiverChannels>
+        <coil><xsl:value-of select="Header/Coil"/></coil>
         <institutionName><xsl:value-of select="Header/Equipment/Institution"/></institutionName>
         <stationName><xsl:value-of select="Header/Equipment/Station"/></stationName>
       </acquisitionSystemInformation>
@@ -134,8 +135,8 @@
             <minimum>0</minimum>
             <xsl:choose>
                 <xsl:when test="(Header/Is3DAcquisition)='true' and (Header/IsZEncoded)='true'">
-                   <maximum><xsl:value-of select="Header/SliceCount - 1"/></maximum>
-		   <center><xsl:value-of select="floor(Header/SliceCount div 2)"/></center>
+                   <maximum><xsl:value-of select="Header/NumSlices - 1"/></maximum>
+		   <center><xsl:value-of select="floor(Header/NumSlices div 2)"/></center>
                 </xsl:when>
                 <xsl:otherwise>
                    <maximum>0</maximum>
@@ -151,8 +152,8 @@
 		<center>0</center>
               </xsl:when>
               <xsl:otherwise>
-                <maximum><xsl:value-of select="Header/SliceCount - 1"/></maximum>
-		<center><xsl:value-of select="floor(Header/SliceCount div 2)"/></center>
+                <maximum><xsl:value-of select="Header/NumSlices - 1"/></maximum>
+		<center><xsl:value-of select="floor(Header/NumSlices div 2)"/></center>
               </xsl:otherwise>
             </xsl:choose>
           </slice>
@@ -163,8 +164,8 @@
           </set>
           <phase>
             <minimum>0</minimum>
-            <maximum>0</maximum>
-            <center>0</center>
+            <maximum><xsl:value-of select="Header/NumPhases - 1"/></maximum>
+            <center><xsl:value-of select="floor(Header/NumPhases div 2)"/></center>
           </phase>
           <repetition>
             <minimum>0</minimum>
@@ -178,8 +179,8 @@
           </segment>
           <contrast>
             <minimum>0</minimum>
-            <maximum><xsl:value-of select="Header/EchoCount - 1"/></maximum>
-            <center><xsl:value-of select="floor(Header/EchoCount div 2)"/></center>
+            <maximum><xsl:value-of select="Header/NumEchoes - 1"/></maximum>
+            <center><xsl:value-of select="floor(Header/NumEchoes div 2)"/></center>
           </contrast>
           <average>
             <minimum>0</minimum>
@@ -188,6 +189,14 @@
           </average>
         </encodingLimits>
         <echoTrainLength><xsl:value-of select="Header/Image/EchoTrainLength"/></echoTrainLength>
+        <numAcquisitions><xsl:value-of select="Header/NumAcquisitions"/></numAcquisitions>
+        <numSlices><xsl:value-of select="Header/NumSlices"/></numSlices>
+        <numPhases><xsl:value-of select="Header/NumPhases"/></numPhases>
+        <numEchoes><xsl:value-of select="Header/NumEchoes"/></numEchoes>
+        <numChannels><xsl:value-of select="Header/NumChannels"/></numChannels>
+        <halfNex><xsl:value-of select="Header/HalfNex"/></halfNex>
+        <chopZ><xsl:value-of select="Header/ChopZ"/></chopZ>
+        <asset><xsl:value-of select="Header/Asset"/></asset>
       </encoding>
 
       <sequenceParameters>
