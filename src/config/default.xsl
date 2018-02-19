@@ -277,17 +277,19 @@ is row, freq encode is column, and vice-versa.
              </xsl:otherwise>
           </xsl:choose>
         </userParameterString>
-        <userParameterString>
-          <name>userVariable</name>
-          <value><xsl:value-of select="Header/Image/User0"/></value>
-          <value><xsl:value-of select="Header/Image/User1"/></value>
-          <value><xsl:value-of select="Header/Image/User2"/></value>
-          <value><xsl:value-of select="Header/Image/User3"/></value>
-          <value><xsl:value-of select="Header/Image/User4"/></value>
-          <value><xsl:value-of select="Header/Image/User5"/></value>
-        </userParameterString>
-      </userParameters>
-
+      </userParameters>     
+      <userVariables>
+        <user>
+          <xsl:for-each select="Header/Image/UserVariable/User">
+            <value><xsl:value-of select="."/></value>            
+          </xsl:for-each>
+        </user>
+        <reconUser>
+          <xsl:for-each select="Header/Image/ReconUserVariable/ReconUser">
+            <value><xsl:value-of select="."/></value>
+          </xsl:for-each>
+        </reconUser>
+      </userVariables>
     </ismrmrdHeader>
   </xsl:template>
 

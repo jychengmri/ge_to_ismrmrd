@@ -76,12 +76,11 @@ namespace OxToIsmrmrd {
         </xs:all>                                                       \
     </xs:complexType>                                                   \
 </xs:schema>";
-  
+
+  static std::string downloadDataToXML(const GERecon::DownloadDataPointer downloadDataPtr);
   static void lxDownloadDataToXML(XMLWriter* writer,
                                   const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr);
-  static std::string scanArchiveToXML(const GERecon::ScanArchivePointer archive);
-  static std::string pfileToXML(const GERecon::Legacy::PfilePointer pfile);
-    
+  
   std::string convert_date(const std::string& date_str) {
     if (date_str.length() == 8) {
       return date_str.substr(0, 4) + "-"
@@ -97,15 +96,24 @@ namespace OxToIsmrmrd {
     } else
       return date_str;
   }
+
   
- /**
-  * Creates a GERawConverter from an ifstream of the PFile header
-  *
-  * @param fp raw FILE pointer to PFile
-  * @throws std::runtime_error if P-File cannot be read
-  */
+  /**
+   * Creates a GERawConverter from an ifstream of the PFile header
+   *
+   * @param fp raw FILE pointer to PFile
+   * @throws std::runtime_error if P-File cannot be read
+   */
   GERawConverter::GERawConverter(const std::string& pfilepath, bool logging)
-    : log_(logging)
+    : m_psdname(""),
+      m_recon_config(""),
+      m_stylesheet(""),
+      m_pfile(NULL),
+      m_scanArchive(NULL),
+      m_downloadDataPtr(NULL),
+      m_processingControl(NULL),
+      m_converter(NULL),
+      log_(logging)
   {
     FILE* fp = NULL;
     if (!(fp = fopen(pfilepath.c_str(), "rb"))) {
@@ -113,33 +121,42 @@ namespace OxToIsmrmrd {
     }
 
     /*
-    psdname_ = ""; // TODO: find PSD Name in Orchestra Pfile class
-    log_ << "PSDName: " << psdname_ << std::endl;
+      m_psdname = ""; // TODO: find PSD Name in Orchestra Pfile class
+      log_ << "PSDName: " << m_psdname << std::endl;
     */
     
-    // Using Orchestra
     if (GERecon::ScanArchive::IsArchiveFilePath(pfilepath)) {
       m_scanArchive = GERecon::ScanArchive::Create(pfilepath, GESystem::Archive::LoadMode);
+
+      m_downloadDataPtr = m_scanArchive->LoadDownloadData();
+      auto lxDownloadDataPtr =  boost::dynamic_pointer_cast<GERecon::Legacy::LxDownloadData>(m_downloadDataPtr);
+      auto controlSource = boost::make_shared<GERecon::Legacy::LxControlSource>(lxDownloadDataPtr);
+      m_processingControl = controlSource->CreateOrchestraProcessingControl();
+      
       m_isScanArchive = true;
-      //throw std::runtime_error("ScanArchive is not yet supported!");
     }
     else {
-      pfile_ = GERecon::Legacy::Pfile::Create(
+      m_pfile = GERecon::Legacy::Pfile::Create(
         pfilepath,
         GERecon::Legacy::Pfile::AllAvailableAcquisitions,
         GERecon::AnonymizationPolicy(GERecon::AnonymizationPolicy::None));
+
+      m_downloadDataPtr = m_pfile->DownloadData();
+      m_processingControl = m_pfile->CreateOrchestraProcessingControl();
+      
       m_isScanArchive = false;
     }
 
-    converter_ = std::shared_ptr<SequenceConverter>(new GenericConverter());
-  }
- 
+    m_converter = std::shared_ptr<SequenceConverter>(new GenericConverter());
+  } // constructor GERawConverter::GERawConverter()
+
+  
   void GERawConverter::useStylesheetFilename(const std::string& filename)
   {
     log_ << "Loading stylesheet: " << filename << std::endl;
     std::ifstream stream(filename.c_str(), std::ios::binary);
     useStylesheetStream(stream);
-  }
+  } // function GERawConverter::useStyelsheetFilename
   
   void GERawConverter::useStylesheetStream(std::ifstream& stream)
   {
@@ -152,7 +169,7 @@ namespace OxToIsmrmrd {
 
   void GERawConverter::useStylesheetString(const std::string& sheet)
   {
-    stylesheet_ = sheet;
+    m_stylesheet = sheet;
   }
 
   void GERawConverter::useConfigFilename(const std::string& filename)
@@ -208,6 +225,7 @@ namespace OxToIsmrmrd {
     return false;
   }
 
+  
   /**
    * Validates configuration then loads plugin, stylesheet
    *
@@ -250,6 +268,7 @@ namespace OxToIsmrmrd {
     }
   }
 
+  
   /**
    * Attempts to load and use a sequence mapping from an XML config.
    *
@@ -297,58 +316,56 @@ namespace OxToIsmrmrd {
    */
   std::string GERawConverter::getIsmrmrdXMLHeader()
   {
-    if (stylesheet_.size() == 0) {
-      throw std::runtime_error("No stylesheet configured");
+
+    if (m_downloadDataPtr == NULL) {
+      throw std::runtime_error("DownloadData not loaded");
     }
-    
-    std::string headerXML; 
-    if (m_isScanArchive)
-      headerXML = scanArchiveToXML(m_scanArchive);
-    else
-      headerXML = pfileToXML(pfile_);
-    
-    // DEBUG:
-    //std::cout << headerXML << std::endl;
+    std::string headerXML (downloadDataToXML(m_downloadDataPtr));
+    // std::cout << headerXML << std::endl;
     
     xmlSubstituteEntitiesDefault(1);
     xmlLoadExtDtdDefaultValue = 1;
     
-    // Normal pointer here because the xsltStylesheet takes ownership
-    xmlDocPtr stylesheet_doc = xmlParseMemory(stylesheet_.c_str(), stylesheet_.size());
-    if (NULL == stylesheet_doc) {
-      throw std::runtime_error("Failed to parse stylesheet");
-    }
-    
-    std::shared_ptr<xsltStylesheet> sheet = std::shared_ptr<xsltStylesheet>(
-      xsltParseStylesheetDoc(stylesheet_doc), xsltFreeStylesheet);
-    if (!sheet) {
-      xmlFreeDoc(stylesheet_doc);
-      throw std::runtime_error("Failed to parse stylesheet");
-    }
-    
     std::shared_ptr<xmlDoc> pfile_doc = std::shared_ptr<xmlDoc>(
-            xmlParseMemory(headerXML.c_str(), headerXML.size()), xmlFreeDoc);
+      xmlParseMemory(headerXML.c_str(), headerXML.size()), xmlFreeDoc);
     if (!pfile_doc) {
       throw std::runtime_error("Failed to parse P-File XML");
     }
 
-    log_ << "Applying stylesheet" << std::endl;
-    const char *params[1] = { NULL };
-    std::shared_ptr<xmlDoc> result = std::shared_ptr<xmlDoc>(
-      xsltApplyStylesheet(sheet.get(), pfile_doc.get(), params), xmlFreeDoc);
-    if (!result) {
-      throw std::runtime_error("Failed to apply stylesheet");
-    }
+    if (m_stylesheet.size() > 0) {
+      log_ << "Applying stylesheet: " << m_stylesheet << std::endl;
+      // Normal pointer here because the xsltStylesheet takes ownership
+      xmlDocPtr stylesheet_doc = xmlParseMemory(m_stylesheet.c_str(), m_stylesheet.size());
+      if (NULL == stylesheet_doc) {
+        throw std::runtime_error("Failed to parse stylesheet");
+      }
     
-    xmlChar* output = NULL;
-    int len = 0;
-    if (xsltSaveResultToString(&output, &len, result.get(), sheet.get()) < 0) {
+      std::shared_ptr<xsltStylesheet> sheet = std::shared_ptr<xsltStylesheet>(
+        xsltParseStylesheetDoc(stylesheet_doc), xsltFreeStylesheet);
+      if (!sheet) {
+        xmlFreeDoc(stylesheet_doc);
+        throw std::runtime_error("Failed to parse stylesheet");
+      }
+    
+      const char *params[1] = { NULL };
+      std::shared_ptr<xmlDoc> result = std::shared_ptr<xmlDoc>(
+        xsltApplyStylesheet(sheet.get(), pfile_doc.get(), params), xmlFreeDoc);
+      if (!result) {
+        throw std::runtime_error("Failed to apply stylesheet");
+      }
+    
+      xmlChar* output = NULL;
+      int len = 0;
+      if (xsltSaveResultToString(&output, &len, result.get(), sheet.get()) < 0) {
         throw std::runtime_error("Failed to save converted doc to string");
+      }
+    
+      std::string ismrmrd_header((char*)output, len);
+      xmlFree(output);
+      return ismrmrd_header;
     }
 
-    std::string ismrmrd_header((char*)output, len);
-    xmlFree(output);
-    return ismrmrd_header;
+    return headerXML;
   }
 
 
@@ -364,55 +381,71 @@ namespace OxToIsmrmrd {
     if (m_isScanArchive)
       return std::vector<ISMRMRD::Acquisition>();
     else
-      return converter_->getAcquisitions(pfile_.get(), view_num);
+      return m_converter->getAcquisitions(m_pfile.get(), view_num);
   }
 
+  
   boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > GERawConverter::getKSpaceMatrix(
     unsigned int i_echo, unsigned int i_phase)
   {
     if (m_isScanArchive)
       return boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> >();
     else
-      return converter_->getKSpaceMatrix(pfile_.get(), i_echo, i_phase);
+      return m_converter->getKSpaceMatrix(m_pfile.get(), i_echo, i_phase);
   }
 
-/**
- * Gets the extra field "reconConfig" from the
- * ge-ismrmrd XML configuration. This can be used to
- * add this library to a Gadgetron client
- */
-std::string GERawConverter::getReconConfigName(void)
-{
-  return std::string(recon_config_);
-}
+  
+  /**
+   * Gets the extra field "reconConfig" from the
+   * ge-ismrmrd XML configuration. This can be used to
+   * add this library to a Gadgetron client
+   */
+  std::string GERawConverter::getReconConfigName(void)
+  {
+    return std::string(m_recon_config);
+  }
 
-/**
- * Gets the number of views in the pfile
- */
-unsigned int GERawConverter::getNumViews(void)
-{
-  return pfile_->ViewCount();
-}
+  
+  /**
+   * Gets the number of views in the pfile
+   */
+  unsigned int GERawConverter::getNumViews(void)
+  {
+    return m_pfile->ViewCount();
+  }
 
-unsigned int GERawConverter::getNumEchoes(void)
-{
-  return pfile_->EchoCount();
-}
+  unsigned int GERawConverter::getNumEchoes(void)
+  {
+    return m_processingControl->Value<int>("NumEchoes");
+  }
+  
+  unsigned int GERawConverter::getNumPhases(void)
+  {
+    return m_processingControl->Value<int>("NumPhases");
+  }
 
-unsigned int GERawConverter::getNumPhases(void)
-{
-  return pfile_->PhaseCount();
-}
 
-
-/**
- * Sets the PFile origin to the RDS client
- *
- * TODO: implement!
- */
+  /**
+   * Sets the PFile origin to the RDS client
+   *
+   * TODO: implement!
+   */
   void GERawConverter::setRDS(void)
   {
   }
+  
+  static std::string downloadDataToXML(const GERecon::DownloadDataPointer downloadDataPtr) {
+    XMLWriter writer;
+    const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr =
+      boost::dynamic_pointer_cast<GERecon::Legacy::LxDownloadData>(downloadDataPtr);
+    writer.startDocument();
+    writer.startElement("Header");
+    lxDownloadDataToXML(&writer, lxDownloadDataPtr);
+    writer.endDocument();
+
+    return writer.getXML();
+  } // function downloadDataToXML()
+  
 
   static void lxDownloadDataToXML(XMLWriter* writer,
                                   const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr)
@@ -619,92 +652,112 @@ unsigned int GERawConverter::getNumPhases(void)
     auto privateAcquisitionModule = dicomImage.PrivateAcquisitionModule();
     writer->formatElement("SecondEcho", "%s", privateAcquisitionModule->SecondEcho().c_str());
 
-    writer->formatElement("User0", "%f", imageHeader.user0);
-    writer->formatElement("User1", "%f", imageHeader.user1);
-    writer->formatElement("User2", "%f", imageHeader.user2);
-    writer->formatElement("User3", "%f", imageHeader.user3);
-    writer->formatElement("User4", "%f", imageHeader.user4);
-    writer->formatElement("User5", "%f", imageHeader.user5); 
-    
+    writer->startElement("UserVariable");
+    writer->formatElement("User", "%f", imageHeader.user0);
+    writer->formatElement("User", "%f", imageHeader.user1);
+    writer->formatElement("User", "%f", imageHeader.user2);
+    writer->formatElement("User", "%f", imageHeader.user3);
+    writer->formatElement("User", "%f", imageHeader.user4);
+    writer->formatElement("User", "%f", imageHeader.user5);
+    writer->formatElement("User", "%f", imageHeader.user6);
+    writer->formatElement("User", "%f", imageHeader.user7);
+    writer->formatElement("User", "%f", imageHeader.user8);
+    writer->formatElement("User", "%f", imageHeader.user9);
+    writer->formatElement("User", "%f", imageHeader.user10);
+    writer->formatElement("User", "%f", imageHeader.user11);
+    writer->formatElement("User", "%f", imageHeader.user12);
+    writer->formatElement("User", "%f", imageHeader.user13);
+    writer->formatElement("User", "%f", imageHeader.user14);
+    writer->formatElement("User", "%f", imageHeader.user15);
+    writer->formatElement("User", "%f", imageHeader.user16);
+    writer->formatElement("User", "%f", imageHeader.user17);
+    writer->formatElement("User", "%f", imageHeader.user18);
+    writer->formatElement("User", "%f", imageHeader.user19);
+    writer->formatElement("User", "%f", imageHeader.user20);
+    writer->formatElement("User", "%f", imageHeader.user21);
+    writer->formatElement("User", "%f", imageHeader.user22);
+    writer->formatElement("User", "%f", imageHeader.user23);
+    writer->formatElement("User", "%f", imageHeader.user24);
+    writer->formatElement("User", "%f", imageHeader.user25);
+    writer->formatElement("User", "%f", imageHeader.user26);
+    writer->formatElement("User", "%f", imageHeader.user27);
+    writer->formatElement("User", "%f", imageHeader.user28);
+    writer->formatElement("User", "%f", imageHeader.user29);
+    writer->formatElement("User", "%f", imageHeader.user30);
+    writer->formatElement("User", "%f", imageHeader.user31);
+    writer->formatElement("User", "%f", imageHeader.user32);
+    writer->formatElement("User", "%f", imageHeader.user33);
+    writer->formatElement("User", "%f", imageHeader.user34);
+    writer->formatElement("User", "%f", imageHeader.user35);
+    writer->formatElement("User", "%f", imageHeader.user36);
+    writer->formatElement("User", "%f", imageHeader.user37);
+    writer->formatElement("User", "%f", imageHeader.user38);
+    writer->formatElement("User", "%f", imageHeader.user39);
+    writer->formatElement("User", "%f", imageHeader.user40);
+    writer->formatElement("User", "%f", imageHeader.user41);
+    writer->formatElement("User", "%f", imageHeader.user42);
+    writer->formatElement("User", "%f", imageHeader.user43);
+    writer->formatElement("User", "%f", imageHeader.user44);
+    writer->formatElement("User", "%f", imageHeader.user45);
+    writer->formatElement("User", "%f", imageHeader.user46);
+    writer->formatElement("User", "%f", imageHeader.user47);
+    writer->formatElement("User", "%f", imageHeader.user48);
+    writer->endElement();
+
+    writer->startElement("ReconUserVariable");
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user0);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user1);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user2);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user3);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user4);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user5);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user6);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user7);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user8);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user9);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user10);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user11);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user12);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user13);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user14);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user15);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user16);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user17);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user18);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user19);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user20);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user21);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user22);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user23);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user24);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user25);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user26);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user27);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user28);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user29);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user30);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user31);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user32);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user33);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user34);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user35);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user36);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user37);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user38);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user39);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user40);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user41);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user42);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user43);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user44);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user45);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user46);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user47);
+    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user48);
     writer->endElement();
     
-    // TODO: rdb_hdr_user fields
-  }
-
-  
-  static std::string scanArchiveToXML(const GERecon::ScanArchivePointer archive)
-  {
-    XMLWriter writer;
-    const GERecon::DownloadDataPointer downloadDataPtr = archive->LoadDownloadData();
-    const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr =
-      boost::dynamic_pointer_cast<GERecon::Legacy::LxDownloadData>(downloadDataPtr);
-    
-    writer.startDocument();
-    writer.startElement("Header");
-    lxDownloadDataToXML(&writer, lxDownloadDataPtr);
-    writer.endDocument();
-
-    return writer.getXML();
-}
-
-
-  static std::string pfileToXML(const GERecon::Legacy::PfilePointer pfile)
-  {
-    XMLWriter writer;
-    writer.startDocument();
-    
-    writer.startElement("Header");
-    /*
-    writer.formatElement("RunNumber", "%d", pfile->RunNumber());
-    writer.formatElement("AcqCount", "%d", pfile->AcqCount());
-    writer.formatElement("PassCount", "%d", pfile->PassCount());
-    writer.formatElement("PfileCount", "%d", pfile->PfileCount());
-    writer.addBooleanElement("IsConcatenated", pfile->IsConcatenated());
-    writer.addBooleanElement("IsRawMode", pfile->IsRawMode());
-    writer.formatElement("SliceCount", "%d", pfile->SliceCount());
-    writer.formatElement("AcquiredSlicesPerAcq", "%d", pfile->AcquiredSlicesPerAcq());
-    writer.formatElement("EchoCount", "%d", pfile->EchoCount());
-    writer.formatElement("ChannelCount", "%d", pfile->ChannelCount());
-    writer.formatElement("PhaseCount", "%d", pfile->PhaseCount());
-    writer.formatElement("XRes", "%d", pfile->XRes());
-    writer.formatElement("YRes", "%d", pfile->YRes());
-    writer.formatElement("RawDataSize", "%llu", pfile->RawDataSize());
-    writer.formatElement("TotalChannelSize", "%llu", pfile->TotalChannelSize());
-    writer.formatElement("ViewCount", "%u", pfile->ViewCount());
-    writer.formatElement("ViewSize", "%u", pfile->ViewSize());
-    writer.formatElement("SampleSize", "%u", pfile->SampleSize());
-    //writer.formatElement("SampleType", "%d", pfile->SampleType());
-    writer.formatElement("BaselineViewCount", "%d", pfile->BaselineViewCount());
-    writer.addBooleanElement("Is3D", pfile->Is3D());
-    writer.addBooleanElement("IsZEncoded", pfile->IsZEncoded());
-    writer.addBooleanElement("IsRadial3D", pfile->IsRadial3D());
-    writer.formatElement("PlaneCount", "%d", pfile->PlaneCount());
-    writer.formatElement("OutputPhaseCount", "%d", pfile->OutputPhaseCount());
-    writer.formatElement("ShotCount", "%d", pfile->ShotCount());
-    writer.formatElement("RepetitionCount", "%d", pfile->RepetitionCount());
-    writer.addBooleanElement("IsEpi", pfile->IsEpi());
-    writer.addBooleanElement("IsPerChannelMultiVoxelSpectro", pfile->IsPerChannelMultiVoxelSpectro());
-    writer.addBooleanElement("IsMCSI", pfile->IsMCSI());
-    writer.addBooleanElement("IsSingleVoxel", pfile->IsSingleVoxel());
-    writer.addBooleanElement("IsDiffusionEpi", pfile->IsDiffusionEpi());
-    writer.addBooleanElement("IsMultiPhaseEpi", pfile->IsMultiPhaseEpi());
-    writer.addBooleanElement("IsFunctionalMri", pfile->IsFunctionalMri());
-    writer.addBooleanElement("IsTricks", pfile->IsTricks());
-    writer.addBooleanElement("IsCine", pfile->IsCine());
-    writer.addBooleanElement("IsCalibration", pfile->IsCalibration());
-    writer.addBooleanElement("IsMavric", pfile->IsMavric());
-    //writer.formatElement("NumEpiDiffusionNexes", "%d", pfile->NumEpiDiffusionNexes());
-    writer.addBooleanElement("IsTopDownEpi", pfile->IsTopDownEpi());
-    writer.addBooleanElement("IsBottomUpEpi", pfile->IsBottomUpEpi());
-    //writer.formatElement("NumberOfNexs", "%d", pfile->NumberOfNexs());
-    writer.formatElement("MultiPhaseType", "%d", pfile->MultiPhaseType()); // this is interleaved field
-    */
-    const GERecon::Legacy::LxDownloadDataPointer lxDataPtr = pfile->DownloadData();
-    lxDownloadDataToXML(&writer, lxDataPtr);
-    writer.endDocument();
-
-    return writer.getXML();
-}
+    writer->endElement();
+  } // function lxDownloadDataToXML()
 
 } // namespace OxToIsmrmrd
 

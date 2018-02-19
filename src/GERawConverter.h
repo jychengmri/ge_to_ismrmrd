@@ -10,6 +10,8 @@
 // Orchestra
 #include "Orchestra/Legacy/Pfile.h"
 #include "Orchestra/Common/ScanArchive.h"
+#include "Orchestra/Common/DownloadData.h"
+#include "Orchestra/Control/ProcessingControl.h"
 
 // Local
 #include "SequenceConverter.h"
@@ -73,14 +75,16 @@ namespace OxToIsmrmrd {
     bool validateConfig(std::shared_ptr<struct _xmlDoc> config_doc);
     bool trySequenceMapping(std::shared_ptr<struct _xmlDoc> doc, struct _xmlNode* mapping);
 
-    std::string psdname_;
-    std::string recon_config_;
-    std::string stylesheet_;
+    std::string m_psdname;
+    std::string m_recon_config;
+    std::string m_stylesheet;
 
     bool m_isScanArchive;
-    GERecon::Legacy::PfilePointer pfile_;
+    GERecon::Legacy::PfilePointer m_pfile;
     GERecon::ScanArchivePointer m_scanArchive;
-    std::shared_ptr<SequenceConverter> converter_;
+    GERecon::DownloadDataPointer m_downloadDataPtr;
+    GERecon::Control::ProcessingControlPointer m_processingControl;
+    std::shared_ptr<SequenceConverter> m_converter;
     
     logstream log_;
   };

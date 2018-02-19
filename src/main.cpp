@@ -86,7 +86,7 @@ int main (int argc, char *argv[])
       converter->useStylesheetFilename(stylesheet);
     } catch (const std::exception& e) {
       std::cerr << "Failed to override stylesheet: " << e.what() << std::endl;
-      return EXIT_FAILURE;
+      //return EXIT_FAILURE;
     }
   }
   
