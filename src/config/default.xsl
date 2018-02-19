@@ -53,6 +53,8 @@
         <!--     </xsl:if> -->
         <!--   </xsl:for-each> -->
         <!-- </referencedImageSequence> -->
+        <psdName><xsl:value-of select="Header/Image/PSDName"/></psdName>
+        <psdNameInternal><xsl:value-of select="Header/Image/PSDNameInternal"/></psdNameInternal>
       </measurementInformation>
 
       <acquisitionSystemInformation>
@@ -274,6 +276,15 @@ is row, freq encode is column, and vice-versa.
                 <value>Unknown</value>
              </xsl:otherwise>
           </xsl:choose>
+        </userParameterString>
+        <userParameterString>
+          <name>userVariable</name>
+          <value><xsl:value-of select="Header/Image/User0"/></value>
+          <value><xsl:value-of select="Header/Image/User1"/></value>
+          <value><xsl:value-of select="Header/Image/User2"/></value>
+          <value><xsl:value-of select="Header/Image/User3"/></value>
+          <value><xsl:value-of select="Header/Image/User4"/></value>
+          <value><xsl:value-of select="Header/Image/User5"/></value>
         </userParameterString>
       </userParameters>
 

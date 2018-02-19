@@ -8,16 +8,32 @@
 #include <libxslt/transform.h>
 #include <libxslt/xsltutils.h>
 
+#include <Orchestra/Acquisition/ControlPacket.h>
+#include <Orchestra/Acquisition/ControlTypes.h>
+#include <Orchestra/Acquisition/Core/ArchiveStorage.h>
+#include <Orchestra/Acquisition/DataTypes.h>
+#include <Orchestra/Acquisition/FrameControl.h>
+
+#include <Orchestra/Legacy/LegacyImageDB.h>
+#include <Orchestra/Legacy/LegacyRdbm.h>
+#include <Orchestra/Legacy/LxControlSource.h>
+#include <Orchestra/Legacy/LegacyForwardDeclarations.h>
+#include <Orchestra/Legacy/DicomSeries.h>
+#include <Orchestra/Legacy/PoolHeader/HeaderMap.h>
+
+#include <System/Utilities/CommonTypes.h>
+#include <System/Utilities/StructMap.h>
+#include <System/Utilities/StructEntry.h>
+
+#include <Orchestra/Common/DataSampleType.h>
 #include <Orchestra/Common/ArchiveHeader.h>
 #include <Orchestra/Common/PrepData.h>
-
 #include <Orchestra/Common/ImageCorners.h>
 #include <Orchestra/Common/SliceInfoTable.h>
 #include <Orchestra/Common/SliceOrientation.h>
+
 #include <Orchestra/Control/ProcessingControl.h>
-#include <Orchestra/Legacy/Pfile.h>
-#include <Orchestra/Legacy/LegacyRdbm.h>
-#include <Orchestra/Legacy/DicomSeries.h>
+
 #include <Dicom/MR/Image.h>
 #include <Dicom/MR/ImageModule.h>
 #include <Dicom/MR/PrivateAcquisitionModule.h>
@@ -61,9 +77,11 @@ namespace OxToIsmrmrd {
     </xs:complexType>                                                   \
 </xs:schema>";
   
-  static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile);
-  static void lxDownloadDataToXML(XMLWriter* writer, const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr);
-  
+  static void lxDownloadDataToXML(XMLWriter* writer,
+                                  const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr);
+  static std::string scanArchiveToXML(const GERecon::ScanArchivePointer archive);
+  static std::string pfileToXML(const GERecon::Legacy::PfilePointer pfile);
+    
   std::string convert_date(const std::string& date_str) {
     if (date_str.length() == 8) {
       return date_str.substr(0, 4) + "-"
@@ -93,20 +111,24 @@ namespace OxToIsmrmrd {
     if (!(fp = fopen(pfilepath.c_str(), "rb"))) {
       throw std::runtime_error("Failed to open " + pfilepath);
     }
-    
+
+    /*
     psdname_ = ""; // TODO: find PSD Name in Orchestra Pfile class
     log_ << "PSDName: " << psdname_ << std::endl;
+    */
     
     // Using Orchestra
     if (GERecon::ScanArchive::IsArchiveFilePath(pfilepath)) {
       m_scanArchive = GERecon::ScanArchive::Create(pfilepath, GESystem::Archive::LoadMode);
-      throw std::runtime_error("ScanArchive is not yet supported!");
+      m_isScanArchive = true;
+      //throw std::runtime_error("ScanArchive is not yet supported!");
     }
     else {
       pfile_ = GERecon::Legacy::Pfile::Create(
         pfilepath,
         GERecon::Legacy::Pfile::AllAvailableAcquisitions,
         GERecon::AnonymizationPolicy(GERecon::AnonymizationPolicy::None));
+      m_isScanArchive = false;
     }
 
     converter_ = std::shared_ptr<SequenceConverter>(new GenericConverter());
@@ -279,10 +301,14 @@ namespace OxToIsmrmrd {
       throw std::runtime_error("No stylesheet configured");
     }
     
-    std::string pfile_header(pfile_to_xml(pfile_));
+    std::string headerXML; 
+    if (m_isScanArchive)
+      headerXML = scanArchiveToXML(m_scanArchive);
+    else
+      headerXML = pfileToXML(pfile_);
     
     // DEBUG:
-    //std::cout << pfile_header << std::endl;
+    //std::cout << headerXML << std::endl;
     
     xmlSubstituteEntitiesDefault(1);
     xmlLoadExtDtdDefaultValue = 1;
@@ -301,7 +327,7 @@ namespace OxToIsmrmrd {
     }
     
     std::shared_ptr<xmlDoc> pfile_doc = std::shared_ptr<xmlDoc>(
-            xmlParseMemory(pfile_header.c_str(), pfile_header.size()), xmlFreeDoc);
+            xmlParseMemory(headerXML.c_str(), headerXML.size()), xmlFreeDoc);
     if (!pfile_doc) {
       throw std::runtime_error("Failed to parse P-File XML");
     }
@@ -326,23 +352,29 @@ namespace OxToIsmrmrd {
   }
 
 
-/**
- * Gets the acquisitions corresponding to a view in memory (P-file).
- *
- * @param view_num View number to get
- * @param vacq Vector of acquisitions
- * @throws std::runtime_error { if plugin fails to copy the data }
- */
-std::vector<ISMRMRD::Acquisition> GERawConverter::getAcquisitions(unsigned int view_num)
-{
-  return converter_->getAcquisitions(pfile_.get(), view_num);
-}
+  /**
+   * Gets the acquisitions corresponding to a view in memory (P-file).
+   *
+   * @param view_num View number to get
+   * @param vacq Vector of acquisitions
+   * @throws std::runtime_error { if plugin fails to copy the data }
+   */
+  std::vector<ISMRMRD::Acquisition> GERawConverter::getAcquisitions(unsigned int view_num)
+  {
+    if (m_isScanArchive)
+      return std::vector<ISMRMRD::Acquisition>();
+    else
+      return converter_->getAcquisitions(pfile_.get(), view_num);
+  }
 
-boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > GERawConverter::getKSpaceMatrix(unsigned int i_echo,
-                                                                                      unsigned int i_phase)
-{
-  return converter_->getKSpaceMatrix(pfile_.get(), i_echo, i_phase);
-}
+  boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > GERawConverter::getKSpaceMatrix(
+    unsigned int i_echo, unsigned int i_phase)
+  {
+    if (m_isScanArchive)
+      return boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> >();
+    else
+      return converter_->getKSpaceMatrix(pfile_.get(), i_echo, i_phase);
+  }
 
 /**
  * Gets the extra field "reconConfig" from the
@@ -382,10 +414,13 @@ unsigned int GERawConverter::getNumPhases(void)
   {
   }
 
-  static void lxDownloadDataToXML(XMLWriter* writer, const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr)
+  static void lxDownloadDataToXML(XMLWriter* writer,
+                                  const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr)
   {
     const GERecon::Legacy::LxDownloadData& lxDownloadData = *lxDownloadDataPtr.get();
     auto rdbHeader = lxDownloadData.RawHeader();
+    const GERecon::Legacy::MrImageDataTypeStruct& imageHeader = lxDownloadData.ImageHeaderData();
+    // auto imageHeader = lxDownloadData.ImageHeaderData();
     const boost::shared_ptr<GERecon::Legacy::LxControlSource> controlSource =
       boost::make_shared<GERecon::Legacy::LxControlSource>(lxDownloadDataPtr);
     auto processingControl = controlSource->CreateOrchestraProcessingControl();
@@ -547,6 +582,8 @@ unsigned int GERawConverter::getNumPhases(void)
     auto imageModule = dicomImage.ImageModule();
     
     writer->startElement("Image");
+    writer->formatElement("PSDName", "%s", imageHeader.psdname);
+    writer->formatElement("PSDNameInternal", "%s", imageHeader.psd_iname);
     writer->formatElement("EchoTime", "%s", imageModule->EchoTime().c_str());
     if (processingControl->Value<int>("NumEchoes") > 1)
       writer->formatElement("EchoTime2", "%g", 1e-3 * ((float) rdbHeader.rdb_hdr_te2));
@@ -581,19 +618,43 @@ unsigned int GERawConverter::getNumPhases(void)
     
     auto privateAcquisitionModule = dicomImage.PrivateAcquisitionModule();
     writer->formatElement("SecondEcho", "%s", privateAcquisitionModule->SecondEcho().c_str());
+
+    writer->formatElement("User0", "%f", imageHeader.user0);
+    writer->formatElement("User1", "%f", imageHeader.user1);
+    writer->formatElement("User2", "%f", imageHeader.user2);
+    writer->formatElement("User3", "%f", imageHeader.user3);
+    writer->formatElement("User4", "%f", imageHeader.user4);
+    writer->formatElement("User5", "%f", imageHeader.user5); 
     
     writer->endElement();
     
     // TODO: rdb_hdr_user fields
   }
 
+  
+  static std::string scanArchiveToXML(const GERecon::ScanArchivePointer archive)
+  {
+    XMLWriter writer;
+    const GERecon::DownloadDataPointer downloadDataPtr = archive->LoadDownloadData();
+    const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr =
+      boost::dynamic_pointer_cast<GERecon::Legacy::LxDownloadData>(downloadDataPtr);
+    
+    writer.startDocument();
+    writer.startElement("Header");
+    lxDownloadDataToXML(&writer, lxDownloadDataPtr);
+    writer.endDocument();
 
-  static std::string pfile_to_xml(const GERecon::Legacy::PfilePointer pfile)
+    return writer.getXML();
+}
+
+
+  static std::string pfileToXML(const GERecon::Legacy::PfilePointer pfile)
   {
     XMLWriter writer;
     writer.startDocument();
     
     writer.startElement("Header");
+    /*
     writer.formatElement("RunNumber", "%d", pfile->RunNumber());
     writer.formatElement("AcqCount", "%d", pfile->AcqCount());
     writer.formatElement("PassCount", "%d", pfile->PassCount());
@@ -637,10 +698,9 @@ unsigned int GERawConverter::getNumPhases(void)
     writer.addBooleanElement("IsBottomUpEpi", pfile->IsBottomUpEpi());
     //writer.formatElement("NumberOfNexs", "%d", pfile->NumberOfNexs());
     writer.formatElement("MultiPhaseType", "%d", pfile->MultiPhaseType()); // this is interleaved field
-    
+    */
     const GERecon::Legacy::LxDownloadDataPointer lxDataPtr = pfile->DownloadData();
     lxDownloadDataToXML(&writer, lxDataPtr);
-    
     writer.endDocument();
 
     return writer.getXML();

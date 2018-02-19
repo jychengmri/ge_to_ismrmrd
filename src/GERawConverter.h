@@ -77,6 +77,7 @@ namespace OxToIsmrmrd {
     std::string recon_config_;
     std::string stylesheet_;
 
+    bool m_isScanArchive;
     GERecon::Legacy::PfilePointer pfile_;
     GERecon::ScanArchivePointer m_scanArchive;
     std::shared_ptr<SequenceConverter> converter_;
