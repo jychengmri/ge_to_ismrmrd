@@ -755,6 +755,8 @@ namespace OxToIsmrmrd {
     writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user47);
     writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user48);
     writer->endElement();
+
+    writer->formatElement("RHRecon", "%d", rdbHeader.rdb_hdr_recon);
     
     writer->endElement();
   } // function lxDownloadDataToXML()

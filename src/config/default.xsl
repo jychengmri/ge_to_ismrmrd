@@ -23,6 +23,7 @@
 
       <studyInformation>
         <studyID><xsl:value-of select="Header/Equipment/ExamNumber"/></studyID>
+        <history><xsl:value-of select="Header/Patient/History"/></history>
         <!--   <studyDate><xsl:value-of select="Header/Study/Date"/></studyDate> -->
         <!--   <studyTime><xsl:value-of select="Header/Study/Time"/></studyTime> -->
         <!-- <studyID><xsl:value-of select="Header/Study/Number"/></studyID> -->
