@@ -48,14 +48,14 @@ int main (int argc, char *argv[])
   po::variables_map vm;
   try {
     po::store(po::command_line_parser(argc, argv).options(all_options).positional(positionals).run(), vm);
-    
+
     po::notify(vm);
   } catch (const po::error& e) {
     std::cerr << "ERROR: " << e.what() << std::endl << std::endl;
     std::cerr << usage << std::endl << visible_options << std::endl;
     return EXIT_FAILURE;
   }
-  
+
   if (vm.count("help")) {
     std::cerr << usage << std::endl << visible_options << std::endl;
     return EXIT_SUCCESS;
@@ -65,12 +65,12 @@ int main (int argc, char *argv[])
     std::cerr << usage << std::endl;
     return EXIT_FAILURE;
   }
-  
+
   bool verbose = false;
   if (vm.count("verbose")) {
     verbose = true;
   }
-    
+
   // Create a new Converter
   std::shared_ptr<OxToIsmrmrd::GERawConverter> converter;
   try {
@@ -89,7 +89,7 @@ int main (int argc, char *argv[])
       //return EXIT_FAILURE;
     }
   }
-  
+
   // Get the ISMRMRD Header String
   std::string xml_header;
   try {
@@ -109,7 +109,7 @@ int main (int argc, char *argv[])
     std::cout << xml_header << std::endl;
     return EXIT_SUCCESS;
   }
-  
+
   // create hdf5 file
   ISMRMRD::Dataset d(outputFileName.c_str(), "dataset", true);
 
@@ -121,27 +121,30 @@ int main (int argc, char *argv[])
     converter->setRDS();
   }
 
+  converter->appendAcquisitions(d);
+
+  /*
   unsigned int numPhases = converter->getNumPhases();
   unsigned int numEchoes = converter->getNumEchoes();
   char kSpaceName [128];
   for (unsigned int i_phase = 0; i_phase < numPhases; i_phase ++)
     for (unsigned int i_echo = 0; i_echo < numEchoes; i_echo ++) {
-      if (numPhases > 1) 
+      if (numPhases > 1)
         std::sprintf(kSpaceName, "kSpaceMatrix_phase%02d", i_phase);
       else
         std::sprintf(kSpaceName, "kSpaceMatrix");
       boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > kSpaceMatrix = converter->getKSpaceMatrix(i_echo, i_phase);
       d.appendNDArray(kSpaceName, *kSpaceMatrix);
     }
-
-  /*
+  */
+   /*
   unsigned int nviews = converter->getNumViews();
   std::cout << "Num views = " << nviews << std::endl;
   // for (unsigned int view_num = 0; view_num < nviews; view_num++) {
-  
+
   // get the acquisitions corresponing to this view
   std::vector<ISMRMRD::Acquisition> acqs = converter->getAcquisitions(0);
-  
+
   std::cout << "Number of acquisitions stored in HDF5 file is " << acqs.size() << std::endl;
   // add these acquisitions to the hdf5 dataset
   for (int n = 0; n < (int) acqs.size(); n++) {
@@ -150,6 +153,6 @@ int main (int argc, char *argv[])
   // }
   */
   //std::cout << "Swedished!" << std::endl;
-  
+
   return EXIT_SUCCESS;
 }

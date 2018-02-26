@@ -80,7 +80,7 @@ namespace OxToIsmrmrd {
   static std::string downloadDataToXML(const GERecon::DownloadDataPointer downloadDataPtr);
   static void lxDownloadDataToXML(XMLWriter* writer,
                                   const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr);
-  
+
   std::string convert_date(const std::string& date_str) {
     if (date_str.length() == 8) {
       return date_str.substr(0, 4) + "-"
@@ -88,7 +88,7 @@ namespace OxToIsmrmrd {
     } else
       return date_str;
   }
-  
+
   std::string convert_time(const std::string& date_str) {
     if (date_str.length() == 6) {
       return date_str.substr(0, 2) + ":"
@@ -97,7 +97,7 @@ namespace OxToIsmrmrd {
       return date_str;
   }
 
-  
+
   /**
    * Creates a GERawConverter from an ifstream of the PFile header
    *
@@ -124,7 +124,7 @@ namespace OxToIsmrmrd {
       m_psdname = ""; // TODO: find PSD Name in Orchestra Pfile class
       log_ << "PSDName: " << m_psdname << std::endl;
     */
-    
+
     if (GERecon::ScanArchive::IsArchiveFilePath(pfilepath)) {
       m_scanArchive = GERecon::ScanArchive::Create(pfilepath, GESystem::Archive::LoadMode);
 
@@ -132,7 +132,7 @@ namespace OxToIsmrmrd {
       auto lxDownloadDataPtr =  boost::dynamic_pointer_cast<GERecon::Legacy::LxDownloadData>(m_downloadDataPtr);
       auto controlSource = boost::make_shared<GERecon::Legacy::LxControlSource>(lxDownloadDataPtr);
       m_processingControl = controlSource->CreateOrchestraProcessingControl();
-      
+
       m_isScanArchive = true;
     }
     else {
@@ -143,25 +143,25 @@ namespace OxToIsmrmrd {
 
       m_downloadDataPtr = m_pfile->DownloadData();
       m_processingControl = m_pfile->CreateOrchestraProcessingControl();
-      
+
       m_isScanArchive = false;
     }
 
     m_converter = std::shared_ptr<SequenceConverter>(new GenericConverter());
   } // constructor GERawConverter::GERawConverter()
 
-  
+
   void GERawConverter::useStylesheetFilename(const std::string& filename)
   {
     log_ << "Loading stylesheet: " << filename << std::endl;
     std::ifstream stream(filename.c_str(), std::ios::binary);
     useStylesheetStream(stream);
   } // function GERawConverter::useStyelsheetFilename
-  
+
   void GERawConverter::useStylesheetStream(std::ifstream& stream)
   {
     stream.seekg(0, std::ios::beg);
-    
+
     std::string sheet((std::istreambuf_iterator<char>(stream)),
                       std::istreambuf_iterator<char>());
     useStylesheetString(sheet);
@@ -182,7 +182,7 @@ namespace OxToIsmrmrd {
   void GERawConverter::useConfigStream(std::ifstream& stream)
   {
     stream.seekg(0, std::ios::beg);
-    
+
     std::string config((std::istreambuf_iterator<char>(stream)),
                        std::istreambuf_iterator<char>());
     useConfigString(config);
@@ -191,13 +191,13 @@ namespace OxToIsmrmrd {
   bool GERawConverter::validateConfig(std::shared_ptr<xmlDoc> config_doc)
   {
     log_ << "Validating configuration" << std::endl;
-    
+
     std::shared_ptr<xmlDoc> schema_doc = std::shared_ptr<xmlDoc>(
       xmlParseMemory(g_schema.c_str(), g_schema.size()), xmlFreeDoc);
     if (!schema_doc) {
       throw std::runtime_error("Failed to parse embedded config-file schema");
     }
-    
+
     std::shared_ptr<xmlSchemaParserCtxt> parser_ctx = std::shared_ptr<xmlSchemaParserCtxt>(
       xmlSchemaNewDocParserCtxt(schema_doc.get()), xmlSchemaFreeParserCtxt);
     if (!parser_ctx) {
@@ -209,13 +209,13 @@ namespace OxToIsmrmrd {
     if (!schema) {
       throw std::runtime_error("Failed to create schema");
     }
-    
+
     std::shared_ptr<xmlSchemaValidCtxt> valid_ctx = std::shared_ptr<xmlSchemaValidCtxt>(
       xmlSchemaNewValidCtxt(schema.get()), xmlSchemaFreeValidCtxt);
     if (!valid_ctx) {
       throw std::runtime_error("Failed to create schema validity context");
     }
-    
+
     // Set error/warning logging functions
     // xmlSchemaSetValidErrors(valid_ctx, errors, warnings, NULL);
 
@@ -225,7 +225,7 @@ namespace OxToIsmrmrd {
     return false;
   }
 
-  
+
   /**
    * Validates configuration then loads plugin, stylesheet
    *
@@ -234,28 +234,28 @@ namespace OxToIsmrmrd {
   void GERawConverter::useConfigString(const std::string& config)
   {
     std::string error_message;
-    
+
     std::shared_ptr<xmlDoc> config_doc = std::shared_ptr<xmlDoc>(
       xmlParseMemory(config.c_str(), config.size()), xmlFreeDoc);
     if (!config_doc) {
       throw std::runtime_error("Failed to parse config");
     }
-    
+
     if (!validateConfig(config_doc)) {
       throw std::runtime_error("Invalid configuration");
     }
-  
+
     log_ << "Searching for sequence mapping" << std::endl;
-    
+
     xmlNodePtr cur = xmlDocGetRootElement(config_doc.get());
     if (NULL == cur) {
       throw std::runtime_error("Can't get root element of configuration");
     }
-    
+
     if (xmlStrcmp(cur->name, (const xmlChar *)"conversionConfiguration")) {
       throw std::runtime_error("root element should be \"conversionConfiguration\"");
     }
-    
+
     cur = cur->xmlChildrenNode;
     while (cur != NULL) {
       if (xmlStrcmp(cur->name, (const xmlChar*) "sequenceMapping") == 0) {
@@ -263,12 +263,12 @@ namespace OxToIsmrmrd {
           break;
         }
       }
-      
+
       cur = cur->next;
     }
   }
 
-  
+
   /**
    * Attempts to load and use a sequence mapping from an XML config.
    *
@@ -278,7 +278,7 @@ namespace OxToIsmrmrd {
   {
     xmlNodePtr parameter = mapping->xmlChildrenNode;
     std::string psdname, libpath, classname, stylesheet, reconconfig;
-    
+
     while (parameter != NULL) {
       if (xmlStrcmp(parameter->name, (const xmlChar*)"psdname") == 0) {
         char *tmp = (char*)xmlNodeListGetString(doc.get(), parameter->xmlChildrenNode, 1);
@@ -303,11 +303,11 @@ namespace OxToIsmrmrd {
       }
       parameter = parameter->next;
     }
-    
+
     return true;
   }
 
-  
+
   /**
    * Converts the XSD ISMRMRD XML header object into a C++ string
    *
@@ -322,10 +322,10 @@ namespace OxToIsmrmrd {
     }
     std::string headerXML (downloadDataToXML(m_downloadDataPtr));
     // std::cout << headerXML << std::endl;
-    
+
     xmlSubstituteEntitiesDefault(1);
     xmlLoadExtDtdDefaultValue = 1;
-    
+
     std::shared_ptr<xmlDoc> pfile_doc = std::shared_ptr<xmlDoc>(
       xmlParseMemory(headerXML.c_str(), headerXML.size()), xmlFreeDoc);
     if (!pfile_doc) {
@@ -339,27 +339,27 @@ namespace OxToIsmrmrd {
       if (NULL == stylesheet_doc) {
         throw std::runtime_error("Failed to parse stylesheet");
       }
-    
+
       std::shared_ptr<xsltStylesheet> sheet = std::shared_ptr<xsltStylesheet>(
         xsltParseStylesheetDoc(stylesheet_doc), xsltFreeStylesheet);
       if (!sheet) {
         xmlFreeDoc(stylesheet_doc);
         throw std::runtime_error("Failed to parse stylesheet");
       }
-    
+
       const char *params[1] = { NULL };
       std::shared_ptr<xmlDoc> result = std::shared_ptr<xmlDoc>(
         xsltApplyStylesheet(sheet.get(), pfile_doc.get(), params), xmlFreeDoc);
       if (!result) {
         throw std::runtime_error("Failed to apply stylesheet");
       }
-    
+
       xmlChar* output = NULL;
       int len = 0;
       if (xsltSaveResultToString(&output, &len, result.get(), sheet.get()) < 0) {
         throw std::runtime_error("Failed to save converted doc to string");
       }
-    
+
       std::string ismrmrd_header((char*)output, len);
       xmlFree(output);
       return ismrmrd_header;
@@ -384,7 +384,7 @@ namespace OxToIsmrmrd {
       return m_converter->getAcquisitions(m_pfile.get(), view_num);
   }
 
-  
+
   boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > GERawConverter::getKSpaceMatrix(
     unsigned int i_echo, unsigned int i_phase)
   {
@@ -394,7 +394,7 @@ namespace OxToIsmrmrd {
       return m_converter->getKSpaceMatrix(m_pfile.get(), i_echo, i_phase);
   }
 
-  
+
   /**
    * Gets the extra field "reconConfig" from the
    * ge-ismrmrd XML configuration. This can be used to
@@ -405,7 +405,7 @@ namespace OxToIsmrmrd {
     return std::string(m_recon_config);
   }
 
-  
+
   /**
    * Gets the number of views in the pfile
    */
@@ -418,7 +418,7 @@ namespace OxToIsmrmrd {
   {
     return m_processingControl->Value<int>("NumEchoes");
   }
-  
+
   unsigned int GERawConverter::getNumPhases(void)
   {
     return m_processingControl->Value<int>("NumPhases");
@@ -433,7 +433,7 @@ namespace OxToIsmrmrd {
   void GERawConverter::setRDS(void)
   {
   }
-  
+
   static std::string downloadDataToXML(const GERecon::DownloadDataPointer downloadDataPtr) {
     XMLWriter writer;
     const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr =
@@ -445,7 +445,7 @@ namespace OxToIsmrmrd {
 
     return writer.getXML();
   } // function downloadDataToXML()
-  
+
 
   static void lxDownloadDataToXML(XMLWriter* writer,
                                   const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr)
@@ -467,7 +467,7 @@ namespace OxToIsmrmrd {
     writer->addBooleanElement("HalfNex", processingControl->ValueStrict<bool>("HalfNex"));
     writer->addBooleanElement("ChopZ", processingControl->ValueStrict<bool>("ChopZ"));
     writer->addBooleanElement("Asset", processingControl->ValueStrict<bool>("Asset"));
-                              
+
     /*
     writer->formatElement("SampleSize", "%u", pfile->SampleSize());
     //writer->formatElement("SampleType", "%d", pfile->SampleType());
@@ -479,7 +479,7 @@ namespace OxToIsmrmrd {
     writer->formatElement("RepetitionCount", "%d", pfile->RepetitionCount());
     writer->addBooleanElement("IsEpi", pfile->IsEpi());
     */
-    
+
     GERecon::Legacy::DicomSeries legacySeries(lxDownloadDataPtr);
     GEDicom::SeriesPointer series = legacySeries.Series();
     GEDicom::SeriesModulePointer seriesModule = series->GeneralModule();
@@ -510,7 +510,7 @@ namespace OxToIsmrmrd {
     writer->formatElement("AccessionNumber", "%s", studyModule->AccessionNumber().c_str());
     writer->formatElement("ReadingPhysician", "%s", studyModule->ReadingPhysician().c_str());
     writer->endElement();
-    
+
     GEDicom::PatientStudyModulePointer patientStudyModule = study->PatientStudyModule();
     GEDicom::PatientPointer patient = study->Patient();
     GEDicom::PatientModulePointer patientModule = patient->GeneralModule();
@@ -536,7 +536,7 @@ namespace OxToIsmrmrd {
     writer->formatElement("PpsPerformedStation", "%s", equipmentModule->PpsPerformedStation().c_str());
     writer->formatElement("PpsPerformedLocation", "%s", equipmentModule->PpsPerformedLocation().c_str());
     writer->endElement();
-    
+
     writer->formatElement("AcquiredXRes", "%d", processingControl->Value<int>("AcquiredXRes"));
     writer->formatElement("AcquiredYRes", "%d", processingControl->Value<int>("AcquiredYRes"));
     writer->formatElement("AcquiredZRes", "%d", processingControl->Value<int>("AcquiredZRes"));
@@ -574,7 +574,7 @@ namespace OxToIsmrmrd {
         writer->formatElement("PatientPosition", "%s", "HFS");
         break;
     }
-    
+
     writer->formatElement("PatientEntry", "%d", processingControl->Value<int>("PatientEntry"));
     writer->formatElement("ScanCenter", "%f", processingControl->Value<int>("ScanCenter"));
     writer->formatElement("Landmark", "%f", processingControl->Value<int>("Landmark"));
@@ -582,27 +582,27 @@ namespace OxToIsmrmrd {
     writer->formatElement("CoilConfigUID", "%u", processingControl->Value<int>("CoilConfigUID"));
     writer->formatElement("Coil", "%s", lxDownloadDataPtr->Coil().c_str());
     //writer->formatElement("RawPassSize", "%llu", processingControl->Value<int>("RawPassSize"));
-    
-    // see AcquisitionParameters documentation for more boolean parameters   
+
+    // see AcquisitionParameters documentation for more boolean parameters
     // ReconstructionParameters
     writer->addBooleanElement("CreateMagnitudeImages", processingControl->Value<bool>("CreateMagnitudeImages"));
     writer->addBooleanElement("CreatePhaseImages", processingControl->Value<bool>("CreatePhaseImages"));
-    
+
     writer->formatElement("TransformXRes", "%d", processingControl->Value<int>("TransformXRes"));
     writer->formatElement("TransformYRes", "%d", processingControl->Value<int>("TransformYRes"));
     writer->formatElement("TransformZRes", "%d", processingControl->Value<int>("TransformZRes"));
-    
+
     writer->addBooleanElement("ChopX", processingControl->Value<bool>("ChopX"));
     writer->addBooleanElement("ChopY", processingControl->Value<bool>("ChopY"));
     writer->addBooleanElement("ChopZ", processingControl->Value<bool>("ChopZ"));
-    
+
     // TODO: map SliceOrder to a string
     // writer->formatElement("SliceOrder", "%s", processingControl->Value<int>("SliceOrder"));
-  
+
     // Image Parameters
     // writer->formatElement("ImageXRes", "%d", processingControl->Value<int>("ImageXRes"));
     // writer->formatElement("ImageYRes", "%d", processingControl->Value<int>("ImageYRes"));
-    
+
     GERecon::PrepData prepData(lxDownloadDataPtr);
     GERecon::ArchiveHeader archiveHeader("ScanArchive", prepData);
 
@@ -613,7 +613,7 @@ namespace OxToIsmrmrd {
     auto grayscaleImage = GEDicom::GrayscaleImage(128, 128);
     auto dicomImage = GERecon::Legacy::DicomImage(grayscaleImage, 0, imageCorners, series, *lxDownloadDataPtr);
     auto imageModule = dicomImage.ImageModule();
-    
+
     writer->startElement("Image");
     writer->formatElement("PSDName", "%s", imageHeader.psdname);
     writer->formatElement("PSDNameInternal", "%s", imageHeader.psd_iname);
@@ -634,13 +634,13 @@ namespace OxToIsmrmrd {
     writer->formatElement("SliceSpacing", "%s", imageModule->SliceSpacing().c_str());
     writer->formatElement("FlipAngle", "%s", imageModule->FlipAngle().c_str());
     writer->formatElement("EchoTrainLength", "%s", imageModule->EchoTrainLength().c_str());
-    
+
     auto imageModuleBase = dicomImage.ImageModuleBase();
     writer->formatElement("AcquisitionDate", "%s", convert_date(imageModuleBase->AcquisitionDate()).c_str());
     writer->formatElement("AcquisitionTime", "%s", convert_time(imageModuleBase->AcquisitionTime()).c_str());
     writer->formatElement("ImageDate", "%s", convert_date(imageModuleBase->ImageDate()).c_str());
     writer->formatElement("ImageTime", "%s", convert_time(imageModuleBase->ImageTime()).c_str());
-    
+
     auto imagePlaneModule = dicomImage.ImagePlaneModule();
     writer->formatElement("ImageOrientation", "%s", imagePlaneModule->ImageOrientation().c_str());
     writer->formatElement("ImagePosition", "%s", imagePlaneModule->ImagePosition().c_str());
@@ -648,7 +648,7 @@ namespace OxToIsmrmrd {
     writer->formatElement("SliceLocation", "%f", imagePlaneModule->SliceLocation());
     writer->formatElement("PixelSizeX", "%f", imagePlaneModule->PixelSizeX());
     writer->formatElement("PixelSizeY", "%f", imagePlaneModule->PixelSizeY());
-    
+
     auto privateAcquisitionModule = dicomImage.PrivateAcquisitionModule();
     writer->formatElement("SecondEcho", "%s", privateAcquisitionModule->SecondEcho().c_str());
 
@@ -757,9 +757,79 @@ namespace OxToIsmrmrd {
     writer->endElement();
 
     writer->formatElement("RHRecon", "%d", rdbHeader.rdb_hdr_recon);
-    
+
     writer->endElement();
   } // function lxDownloadDataToXML()
 
-} // namespace OxToIsmrmrd
 
+  void GERawConverter::appendAcquisitions(ISMRMRD::Dataset& d) {
+    if (!m_isScanArchive)
+      return;
+
+    GERecon::Acquisition::ArchiveStoragePointer archiveStorage =
+      GERecon::Acquisition::ArchiveStorage::Create(m_scanArchive);
+    const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr =
+      boost::dynamic_pointer_cast<GERecon::Legacy::LxDownloadData>(m_downloadDataPtr);
+    const GERecon::Legacy::LxDownloadData& lxDownloadData = *lxDownloadDataPtr.get();
+    auto rdbHeader = lxDownloadData.RawHeader();
+
+    const size_t numControls = archiveStorage->AvailableControlCount();
+    int lenReadout = m_processingControl->Value<int>("AcquiredXRes");
+    int numChannels = m_processingControl->Value<int>("NumChannels");
+    bool is3D = m_processingControl->Value<bool>("Is3DAcquisition");
+    float bandwidth = rdbHeader.rdb_hdr_bw;
+    float sample_time_us = 1.0 / (bandwidth * 1e-3);
+
+    //log_ << "Bandwidth" << bandwidth << std::endl;
+    size_t i_acquisition = 0;
+
+    log_ << "Num controls: " << numControls << std::endl;
+
+    for(size_t i_control = 0; i_control < numControls; i_control++) {
+      const GERecon::Acquisition::FrameControlPointer controlPacketAndFrameData = archiveStorage->NextFrameControl();
+      if(controlPacketAndFrameData->Control().Opcode() == GERecon::Acquisition::ProgrammableOpcode) {
+        //ISMRMRD::Acquisition ismrmrd_acq;
+
+        const GERecon::Acquisition::ProgrammableControlPacket framePacket =
+          controlPacketAndFrameData->Control().Packet().As<GERecon::Acquisition::ProgrammableControlPacket>();
+        int viewValue = GERecon::Acquisition::GetPacketValue(framePacket.viewNumH, framePacket.viewNumL);
+        if (viewValue != 0) {
+          ISMRMRD::Acquisition ismrmrd_acq;
+          ismrmrd_acq.resize(lenReadout, numChannels);
+          ismrmrd_acq.idx().contrast = framePacket.echoNum;
+          ismrmrd_acq.idx().kspace_encode_step_1 = viewValue - 1;
+          if (is3D) {
+            ismrmrd_acq.idx().kspace_encode_step_2 = GERecon::Acquisition::GetPacketValue(framePacket.sliceNumH,
+                                                                                          framePacket.sliceNumL);
+            ismrmrd_acq.idx().slice = 0;
+          }
+          else {
+            ismrmrd_acq.idx().kspace_encode_step_2 = 0;
+            ismrmrd_acq.idx().slice = GERecon::Acquisition::GetPacketValue(framePacket.sliceNumH,
+                                                                           framePacket.sliceNumL);
+          }
+          ismrmrd_acq.scan_counter() = i_acquisition++;
+          ismrmrd_acq.discard_pre() = 0;
+          ismrmrd_acq.discard_post() = 0;
+          ismrmrd_acq.sample_time_us() = sample_time_us;
+          ismrmrd_acq.user_int()[0] = controlPacketAndFrameData->Control().Opcode();
+
+          const MDArray::ComplexFloatCube frameRawData = controlPacketAndFrameData->Data();
+          if (frameRawData.extent(2) != 1)
+            std::cout << "Warning!! Number of frames not equal to 1 for control packet" << std::endl;
+
+          for (int i_channel = 0; i_channel < numChannels; i_channel++)
+            for (int i_readout = 0; i_readout < lenReadout; i_readout++)
+              ismrmrd_acq.data(i_readout, i_channel) = frameRawData(i_readout, i_channel, 0);
+
+
+          //for (int i = 0; i < frameRawData.dimensions(); i++)
+          //  log_ << frameRawData.extent(i) << std::endl;
+          d.appendAcquisition(ismrmrd_acq);
+        } // if (viewValue...)
+      } // if (controlPacketAndFrameData->Contrl().Opcode()...)
+    } // for (i_control)
+
+  } // function GERawConverter::appendAcquisitions()
+
+} // namespace OxToIsmrmrd

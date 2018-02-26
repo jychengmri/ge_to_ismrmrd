@@ -6,6 +6,7 @@
 
 // ISMRMRD
 #include "ismrmrd/ismrmrd.h"
+#include "ismrmrd/dataset.h"
 
 // Orchestra
 #include "Orchestra/Legacy/Pfile.h"
@@ -46,21 +47,23 @@ namespace OxToIsmrmrd {
   public:
     GERawConverter(const std::string& pfilepath, bool logging=false);
     //GERawConverter(void *hdr_loc, bool logging=false);
-    
+
     void useStylesheetFilename(const std::string& filename);
     void useStylesheetStream(std::ifstream& stream);
     void useStylesheetString(const std::string& sheet);
-    
+
     void useConfigFilename(const std::string& filename);
     void useConfigStream(std::ifstream& stream);
     void useConfigString(const std::string& config);
-    
+
     std::string getIsmrmrdXMLHeader();
 
     std::vector<ISMRMRD::Acquisition> getAcquisitions(unsigned int view_num);
     boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > getKSpaceMatrix(unsigned int i_echo,
                                                                           unsigned int i_phase);
-    
+
+    void appendAcquisitions(ISMRMRD::Dataset& d);
+
     std::string getReconConfigName(void);
     unsigned int getNumViews(void);
     unsigned int getNumEchoes(void);
@@ -71,7 +74,7 @@ namespace OxToIsmrmrd {
     // Non-copyable
     GERawConverter(const GERawConverter& other);
     GERawConverter& operator=(const GERawConverter& other);
-    
+
     bool validateConfig(std::shared_ptr<struct _xmlDoc> config_doc);
     bool trySequenceMapping(std::shared_ptr<struct _xmlDoc> doc, struct _xmlNode* mapping);
 
@@ -85,7 +88,7 @@ namespace OxToIsmrmrd {
     GERecon::DownloadDataPointer m_downloadDataPtr;
     GERecon::Control::ProcessingControlPointer m_processingControl;
     std::shared_ptr<SequenceConverter> m_converter;
-    
+
     logstream log_;
   };
 
