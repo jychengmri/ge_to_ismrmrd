@@ -762,6 +762,66 @@ namespace OxToIsmrmrd {
   } // function lxDownloadDataToXML()
 
 
+  void GERawConverter::appendAcquisitionsFromPfile(ISMRMRD::Dataset& d) {
+    if (m_isScanArchive)
+      return;
+
+    const GERecon::Control::ProcessingControlPointer processingControl(m_pfile->CreateOrchestraProcessingControl());
+    // auto lxDownloadDataPtr =  boost::dynamic_pointer_cast<GERecon::Legacy::LxDownloadData>(m_downloadDataPtr);
+    // const GERecon::Legacy::LxDownloadData& lxDownloadData = *lxDownloadDataPtr.get();
+    // const GERecon::Legacy::PrescanHeaderStruct& prescanHeader = lxDownloadData.PrescanHeader();
+
+    unsigned int lenFrame = (unsigned int)processingControl->Value<int>("AcquiredXRes");
+    unsigned int numViews = (unsigned int)processingControl->Value<int>("AcquiredYRes");
+    unsigned int numSlices = (unsigned int)processingControl->Value<int>("AcquiredZRes");
+    unsigned int numChannels = m_pfile->ChannelCount();
+    unsigned int numEchoes = (unsigned int) m_processingControl->Value<int>("NumEchoes");
+    unsigned int numPhases = (unsigned int) m_processingControl->Value<int>("NumPhases");
+
+    for (unsigned int i_phase = 0; i_phase < numPhases; i_phase++) {
+      for (unsigned int i_echo = 0; i_echo < numEchoes; i_echo++) {
+        ISMRMRD::Image<std::complex<float> > kspace(lenFrame, numViews, numSlices, numChannels);
+        kspace.setImageType(ISMRMRD::ISMRMRD_ImageTypes::ISMRMRD_IMTYPE_COMPLEX);
+        kspace.setContrast(i_echo);
+        kspace.setPhase(i_phase);
+        // ISMRMRD::ImageHeader header = kspace.getHead();
+        /*
+        // Get noise statistics to pre-whiten the data
+        MDArray::FloatVector noiseValues(numChannels);
+        MDArray::FloatVector recWeight(numChannels);
+        for (unsigned int i_channel = 0; i_channel < numChannels; i_channel++)
+        noiseValues(i_channel) = prescanHeader.rec_std[i_channel];
+        recWeight = 1.0f / MDArray::pow(noiseValues, 2);
+        recWeight = MDArray::sqrt(recWeight / MDArray::sum(recWeight));
+        */
+
+        // Pfile is stored as (readout, views, echoes, slice, channel)
+        log_ << "Reading volume (Echo: " << i_echo << ", Phase: " << i_phase << ")..." << std::endl;
+#pragma omp parallel for collapse(2)
+        for (unsigned int i_channel = 0; i_channel < numChannels; i_channel++) {
+          for (unsigned int i_slice = 0; i_slice < numSlices; i_slice++) {
+            MDArray::ComplexFloatMatrix kspaceFromFile;
+            if (m_pfile->IsZEncoded()) {
+              auto kSpaceRead = m_pfile->KSpaceData<float>(
+                GERecon::Legacy::Pfile::PassSlicePair(i_phase, i_slice), i_echo, i_channel);
+              kspaceFromFile.reference(kSpaceRead);
+            }
+            else {
+              auto kSpaceRead = m_pfile->KSpaceData<float>(i_slice, i_echo, i_channel, i_phase);
+              kspaceFromFile.reference(kSpaceRead);
+            }
+
+            for (unsigned int i_view = 0; i_view < numViews; i_view++) {
+              for (unsigned int i = 0 ; i < lenFrame ; i++)
+                kspace(i, i_view, i_slice, i_channel) = kspaceFromFile((int)i, (int)i_view); // * recWeight(i_channel);
+            } // for (i_view)
+          } // for (i_slice)
+        } // for (i_channel)
+        d.appendImage("kspace", kspace);
+      } // for (i_echo)
+    } // for (i_phase)
+  }
+
   void GERawConverter::appendAcquisitions(ISMRMRD::Dataset& d) {
     if (!m_isScanArchive)
       return;

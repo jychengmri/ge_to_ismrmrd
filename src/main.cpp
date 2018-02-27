@@ -122,6 +122,7 @@ int main (int argc, char *argv[])
   }
 
   converter->appendAcquisitions(d);
+  converter->appendAcquisitionsFromPfile(d);
 
   /*
   unsigned int numPhases = converter->getNumPhases();
@@ -137,21 +138,7 @@ int main (int argc, char *argv[])
       d.appendNDArray(kSpaceName, *kSpaceMatrix);
     }
   */
-   /*
-  unsigned int nviews = converter->getNumViews();
-  std::cout << "Num views = " << nviews << std::endl;
-  // for (unsigned int view_num = 0; view_num < nviews; view_num++) {
 
-  // get the acquisitions corresponing to this view
-  std::vector<ISMRMRD::Acquisition> acqs = converter->getAcquisitions(0);
-
-  std::cout << "Number of acquisitions stored in HDF5 file is " << acqs.size() << std::endl;
-  // add these acquisitions to the hdf5 dataset
-  for (int n = 0; n < (int) acqs.size(); n++) {
-    d.appendAcquisition(acqs.at(n));
-  }
-  // }
-  */
   //std::cout << "Swedished!" << std::endl;
 
   return EXIT_SUCCESS;

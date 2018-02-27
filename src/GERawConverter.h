@@ -62,6 +62,7 @@ namespace OxToIsmrmrd {
     boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > getKSpaceMatrix(unsigned int i_echo,
                                                                           unsigned int i_phase);
 
+    void appendAcquisitionsFromPfile(ISMRMRD::Dataset& d);
     void appendAcquisitions(ISMRMRD::Dataset& d);
 
     std::string getReconConfigName(void);
