@@ -767,9 +767,9 @@ namespace OxToIsmrmrd {
       return;
 
     const GERecon::Control::ProcessingControlPointer processingControl(m_pfile->CreateOrchestraProcessingControl());
-    // auto lxDownloadDataPtr =  boost::dynamic_pointer_cast<GERecon::Legacy::LxDownloadData>(m_downloadDataPtr);
-    // const GERecon::Legacy::LxDownloadData& lxDownloadData = *lxDownloadDataPtr.get();
-    // const GERecon::Legacy::PrescanHeaderStruct& prescanHeader = lxDownloadData.PrescanHeader();
+    auto lxDownloadDataPtr =  boost::dynamic_pointer_cast<GERecon::Legacy::LxDownloadData>(m_downloadDataPtr);
+    const GERecon::Legacy::LxDownloadData& lxDownloadData = *lxDownloadDataPtr.get();
+    const GERecon::Legacy::PrescanHeaderStruct& prescanHeader = lxDownloadData.PrescanHeader();
 
     unsigned int lenFrame = (unsigned int)processingControl->Value<int>("AcquiredXRes");
     unsigned int numViews = (unsigned int)processingControl->Value<int>("AcquiredYRes");
@@ -778,6 +778,22 @@ namespace OxToIsmrmrd {
     unsigned int numEchoes = (unsigned int) m_processingControl->Value<int>("NumEchoes");
     unsigned int numPhases = (unsigned int) m_processingControl->Value<int>("NumPhases");
 
+    // Get noise statistics to pre-whiten the data
+    /*
+    MDArray::FloatVector noiseValues(numChannels);
+    MDArray::FloatVector recWeight(numChannels);
+    for (unsigned int i_channel = 0; i_channel < numChannels; i_channel++)
+      noiseValues(i_channel) = prescanHeader.rec_std[i_channel];
+    recWeight = 1.0f / MDArray::pow(noiseValues, 2);
+    recWeight = MDArray::sqrt(recWeight / MDArray::sum(recWeight));
+    */
+    log_ << "Loading noise std values..." << std::endl;
+    std::vector<size_t> dims = {numChannels};
+    ISMRMRD::NDArray<float> noiseValues(dims);
+    for (unsigned int i_channel = 0; i_channel < numChannels; i_channel++)
+      noiseValues(i_channel) = prescanHeader.rec_std[i_channel];
+    d.appendNDArray("rec_std", noiseValues);
+
     for (unsigned int i_phase = 0; i_phase < numPhases; i_phase++) {
       for (unsigned int i_echo = 0; i_echo < numEchoes; i_echo++) {
         ISMRMRD::Image<std::complex<float> > kspace(lenFrame, numViews, numSlices, numChannels);
@@ -785,15 +801,6 @@ namespace OxToIsmrmrd {
         kspace.setContrast(i_echo);
         kspace.setPhase(i_phase);
         // ISMRMRD::ImageHeader header = kspace.getHead();
-        /*
-        // Get noise statistics to pre-whiten the data
-        MDArray::FloatVector noiseValues(numChannels);
-        MDArray::FloatVector recWeight(numChannels);
-        for (unsigned int i_channel = 0; i_channel < numChannels; i_channel++)
-        noiseValues(i_channel) = prescanHeader.rec_std[i_channel];
-        recWeight = 1.0f / MDArray::pow(noiseValues, 2);
-        recWeight = MDArray::sqrt(recWeight / MDArray::sum(recWeight));
-        */
 
         // Pfile is stored as (readout, views, echoes, slice, channel)
         log_ << "Reading volume (Echo: " << i_echo << ", Phase: " << i_phase << ")..." << std::endl;
@@ -820,7 +827,7 @@ namespace OxToIsmrmrd {
         d.appendImage("kspace", kspace);
       } // for (i_echo)
     } // for (i_phase)
-  }
+  } // function GERawConverter::appendAcquisitionsFromPfile()
 
   void GERawConverter::appendAcquisitions(ISMRMRD::Dataset& d) {
     if (!m_isScanArchive)
