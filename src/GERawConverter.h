@@ -57,13 +57,7 @@ namespace OxToIsmrmrd {
     void useConfigString(const std::string& config);
 
     std::string getIsmrmrdXMLHeader();
-
-    std::vector<ISMRMRD::Acquisition> getAcquisitions(unsigned int view_num);
-    boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > getKSpaceMatrix(unsigned int i_echo,
-                                                                          unsigned int i_phase);
-
-    void appendAcquisitionsFromPfile(ISMRMRD::Dataset& d);
-    void appendAcquisitions(ISMRMRD::Dataset& d);
+    size_t appendAcquisitions(ISMRMRD::Dataset& d);
 
     std::string getReconConfigName(void);
     unsigned int getNumViews(void);
@@ -78,6 +72,9 @@ namespace OxToIsmrmrd {
 
     bool validateConfig(std::shared_ptr<struct _xmlDoc> config_doc);
     bool trySequenceMapping(std::shared_ptr<struct _xmlDoc> doc, struct _xmlNode* mapping);
+
+    size_t appendAcquisitionsFromPfile(ISMRMRD::Dataset& d);
+    size_t appendAcquisitionsFromArchive(ISMRMRD::Dataset& d);
 
     std::string m_psdname;
     std::string m_recon_config;

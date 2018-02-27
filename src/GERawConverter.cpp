@@ -370,32 +370,6 @@ namespace OxToIsmrmrd {
 
 
   /**
-   * Gets the acquisitions corresponding to a view in memory (P-file).
-   *
-   * @param view_num View number to get
-   * @param vacq Vector of acquisitions
-   * @throws std::runtime_error { if plugin fails to copy the data }
-   */
-  std::vector<ISMRMRD::Acquisition> GERawConverter::getAcquisitions(unsigned int view_num)
-  {
-    if (m_isScanArchive)
-      return std::vector<ISMRMRD::Acquisition>();
-    else
-      return m_converter->getAcquisitions(m_pfile.get(), view_num);
-  }
-
-
-  boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > GERawConverter::getKSpaceMatrix(
-    unsigned int i_echo, unsigned int i_phase)
-  {
-    if (m_isScanArchive)
-      return boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> >();
-    else
-      return m_converter->getKSpaceMatrix(m_pfile.get(), i_echo, i_phase);
-  }
-
-
-  /**
    * Gets the extra field "reconConfig" from the
    * ge-ismrmrd XML configuration. This can be used to
    * add this library to a Gadgetron client
@@ -762,9 +736,17 @@ namespace OxToIsmrmrd {
   } // function lxDownloadDataToXML()
 
 
-  void GERawConverter::appendAcquisitionsFromPfile(ISMRMRD::Dataset& d) {
+  size_t GERawConverter::appendAcquisitions(ISMRMRD::Dataset& d) {
     if (m_isScanArchive)
-      return;
+      return appendAcquisitionsFromArchive(d);
+    else
+      return appendAcquisitionsFromPfile(d);
+  }
+
+
+  size_t GERawConverter::appendAcquisitionsFromPfile(ISMRMRD::Dataset& d) {
+    if (m_isScanArchive)
+      return 0;
 
     const GERecon::Control::ProcessingControlPointer processingControl(m_pfile->CreateOrchestraProcessingControl());
     auto lxDownloadDataPtr =  boost::dynamic_pointer_cast<GERecon::Legacy::LxDownloadData>(m_downloadDataPtr);
@@ -777,6 +759,8 @@ namespace OxToIsmrmrd {
     unsigned int numChannels = m_pfile->ChannelCount();
     unsigned int numEchoes = (unsigned int) m_processingControl->Value<int>("NumEchoes");
     unsigned int numPhases = (unsigned int) m_processingControl->Value<int>("NumPhases");
+
+    size_t numVolumes = 0;
 
     // Get noise statistics to pre-whiten the data
     /*
@@ -825,13 +809,17 @@ namespace OxToIsmrmrd {
           } // for (i_slice)
         } // for (i_channel)
         d.appendImage("kspace", kspace);
+        numVolumes++;
       } // for (i_echo)
     } // for (i_phase)
+
+    return numVolumes;
   } // function GERawConverter::appendAcquisitionsFromPfile()
 
-  void GERawConverter::appendAcquisitions(ISMRMRD::Dataset& d) {
+
+  size_t GERawConverter::appendAcquisitionsFromArchive(ISMRMRD::Dataset& d) {
     if (!m_isScanArchive)
-      return;
+      return 0;
 
     GERecon::Acquisition::ArchiveStoragePointer archiveStorage =
       GERecon::Acquisition::ArchiveStorage::Create(m_scanArchive);
@@ -897,6 +885,7 @@ namespace OxToIsmrmrd {
       } // if (controlPacketAndFrameData->Contrl().Opcode()...)
     } // for (i_control)
 
+    return i_acquisition;
   } // function GERawConverter::appendAcquisitions()
 
 } // namespace OxToIsmrmrd

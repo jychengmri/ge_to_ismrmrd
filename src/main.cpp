@@ -122,23 +122,6 @@ int main (int argc, char *argv[])
   }
 
   converter->appendAcquisitions(d);
-  converter->appendAcquisitionsFromPfile(d);
-
-  /*
-  unsigned int numPhases = converter->getNumPhases();
-  unsigned int numEchoes = converter->getNumEchoes();
-  char kSpaceName [128];
-  for (unsigned int i_phase = 0; i_phase < numPhases; i_phase ++)
-    for (unsigned int i_echo = 0; i_echo < numEchoes; i_echo ++) {
-      if (numPhases > 1)
-        std::sprintf(kSpaceName, "kSpaceMatrix_phase%02d", i_phase);
-      else
-        std::sprintf(kSpaceName, "kSpaceMatrix");
-      boost::shared_ptr<ISMRMRD::NDArray<complex_float_t> > kSpaceMatrix = converter->getKSpaceMatrix(i_echo, i_phase);
-      d.appendNDArray(kSpaceName, *kSpaceMatrix);
-    }
-  */
-
   //std::cout << "Swedished!" << std::endl;
 
   return EXIT_SUCCESS;
