@@ -39,8 +39,7 @@ namespace GeToIsmrmrd {
   class GERawConverter
   {
   public:
-    GERawConverter(const std::string& pfilepath, bool logging=false);
-    //GERawConverter(void *hdr_loc, bool logging=false);
+    GERawConverter(const std::string& filepath, bool logging=false);
 
     std::string getIsmrmrdXMLHeader();
     size_t appendAcquisitions(ISMRMRD::Dataset& d);

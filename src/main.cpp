@@ -4,11 +4,12 @@
 #include <boost/program_options.hpp>
 
 // ISMRMRD
-#include "ismrmrd/ismrmrd.h"
-#include "ismrmrd/dataset.h"
+#include <ismrmrd/ismrmrd.h>
+#include <ismrmrd/dataset.h>
+#include <ismrmrd/version.h>
 
 // Orchestra
-#include "System/Utilities/Main.h"
+#include <System/Utilities/Main.h>
 
 // GE
 #include "GERawConverter.h"
@@ -17,17 +18,19 @@ namespace po = boost::program_options;
 
 int main (int argc, char *argv[])
 {
+  std::string bin_name = "ge_to_ismrmrd";
 
-  std::string classname, stylesheet, inputFileName, outputFileName;
-  std::string usage("ge_to_ismrmrd [options] <input file>");
+  std::string inputFileName, outputFileName;
+  std::string usage(bin_name + " [options] <input file>");
 
   po::options_description basic("Basic Options");
   basic.add_options()
     ("help,h", "print help message")
-    ("verbose,v", "enable verbose mode")
+    ("verbose", "enable verbose mode")
     ("output,o", po::value<std::string>(&outputFileName)->default_value("output.h5"), "output HDF5 file")
     //("rdsfile,r", "P-File from the RDS client")
     ("string,s", "only print the HDF5 XML header")
+    ("version", "print version information")
     ;
 
   po::options_description input("Input Options");
@@ -60,8 +63,19 @@ int main (int argc, char *argv[])
     return EXIT_SUCCESS;
   }
 
+  if (vm.count("version")) {
+    std::cout << bin_name << std::endl;
+    std::cout << "          Git: " << GIT_BRANCH << "-" << GIT_COMMIT_HASH << std::endl;
+    std::cout << "      ISMRMRD: " << ISMRMRD_VERSION_MAJOR << "." << ISMRMRD_VERSION_MINOR
+              << "." << ISMRMRD_VERSION_PATCH << std::endl;
+    std::cout << "  ISMRMRD XML: " << ISMRMRD_XMLHDR_VERSION << std::endl;
+    // Is there somewhere to find this?
+    std::cout << "    Orchestra: 1.6-1" << std::endl;
+    return EXIT_SUCCESS;
+  }
+
   if (inputFileName.size() == 0) {
-    std::cerr << usage << std::endl;
+    std::cerr << usage << std::endl << visible_options << std::endl;
     return EXIT_FAILURE;
   }
 

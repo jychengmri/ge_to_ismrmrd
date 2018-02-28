@@ -64,10 +64,10 @@ namespace GeToIsmrmrd {
   /**
    * Creates a GERawConverter from an ifstream of the PFile header
    *
-   * @param fp raw FILE pointer to PFile
-   * @throws std::runtime_error if P-File cannot be read
+   * @param fp raw FILE pointer to GE file
+   * @throws std::runtime_error if file cannot be read
    */
-  GERawConverter::GERawConverter(const std::string& pfilepath, bool logging)
+  GERawConverter::GERawConverter(const std::string& filepath, bool logging)
     : m_pfile(NULL),
       m_scanArchive(NULL),
       m_downloadDataPtr(NULL),
@@ -75,14 +75,14 @@ namespace GeToIsmrmrd {
       m_log(logging)
   {
     FILE* fp = NULL;
-    if (!(fp = fopen(pfilepath.c_str(), "rb"))) {
-      throw std::runtime_error("Failed to open " + pfilepath);
+    if (!(fp = fopen(filepath.c_str(), "rb"))) {
+      throw std::runtime_error("Failed to open " + filepath);
     }
 
-    m_log << "Reading data from file (" << pfilepath << ")..." << std::endl;
+    m_log << "Reading data from file (" << filepath << ")..." << std::endl;
 
-    if (GERecon::ScanArchive::IsArchiveFilePath(pfilepath)) {
-      m_scanArchive = GERecon::ScanArchive::Create(pfilepath, GESystem::Archive::LoadMode);
+    if (GERecon::ScanArchive::IsArchiveFilePath(filepath)) {
+      m_scanArchive = GERecon::ScanArchive::Create(filepath, GESystem::Archive::LoadMode);
 
       m_downloadDataPtr = m_scanArchive->LoadDownloadData();
       auto lxDownloadDataPtr =  boost::dynamic_pointer_cast<GERecon::Legacy::LxDownloadData>(m_downloadDataPtr);
@@ -93,7 +93,7 @@ namespace GeToIsmrmrd {
     }
     else {
       m_pfile = GERecon::Legacy::Pfile::Create(
-        pfilepath,
+        filepath,
         GERecon::Legacy::Pfile::AllAvailableAcquisitions,
         GERecon::AnonymizationPolicy(GERecon::AnonymizationPolicy::None));
 
