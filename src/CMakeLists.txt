@@ -1,5 +1,5 @@
-set(CONVERTER_LIB "p2i")
-set(CONVERTER_BIN "pfile2ismrmrd")
+set(CONVERTER_LIB "ge2i")
+set(CONVERTER_BIN "ge_to_ismrmrd")
 
 include_directories(
   ${ISMRMRD_INCLUDE_DIR}
@@ -9,7 +9,6 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_library(${CONVERTER_LIB} STATIC
-  GenericConverter.cpp
   GERawConverter.cpp)
     
 target_link_libraries(${CONVERTER_LIB}

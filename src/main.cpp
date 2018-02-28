@@ -26,7 +26,7 @@ int main (int argc, char *argv[])
     ("help,h", "print help message")
     ("verbose,v", "enable verbose mode")
     ("stylesheet,x", po::value<std::string>(&stylesheet)->default_value(""), "XSL stylesheet file")
-    ("output,o", po::value<std::string>(&outputFileName)->default_value("testdata.h5"), "output HDF5 file")
+    ("output,o", po::value<std::string>(&outputFileName)->default_value("output.h5"), "output HDF5 file")
     ("rdsfile,r", "P-File from the RDS client")
     ("string,s", "only print the HDF5 XML header")
     ;

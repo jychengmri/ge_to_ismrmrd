@@ -7,15 +7,13 @@
 // ISMRMRD
 #include "ismrmrd/ismrmrd.h"
 #include "ismrmrd/dataset.h"
+#include "ismrmrd/xml.h"
 
 // Orchestra
 #include "Orchestra/Legacy/Pfile.h"
 #include "Orchestra/Common/ScanArchive.h"
 #include "Orchestra/Common/DownloadData.h"
 #include "Orchestra/Control/ProcessingControl.h"
-
-// Local
-#include "SequenceConverter.h"
 
 // Libxml2 forward declarations
 struct _xmlDoc;
@@ -60,9 +58,6 @@ namespace OxToIsmrmrd {
     size_t appendAcquisitions(ISMRMRD::Dataset& d);
 
     std::string getReconConfigName(void);
-    unsigned int getNumViews(void);
-    unsigned int getNumEchoes(void);
-    unsigned int getNumPhases(void);
     void setRDS(void);
 
   private:
@@ -73,6 +68,9 @@ namespace OxToIsmrmrd {
     bool validateConfig(std::shared_ptr<struct _xmlDoc> config_doc);
     bool trySequenceMapping(std::shared_ptr<struct _xmlDoc> doc, struct _xmlNode* mapping);
 
+    ISMRMRD::IsmrmrdHeader lxDownloadDataToIsmrmrdHeader();
+
+    size_t appendNoiseInformation(ISMRMRD::Dataset& d);
     size_t appendAcquisitionsFromPfile(ISMRMRD::Dataset& d);
     size_t appendAcquisitionsFromArchive(ISMRMRD::Dataset& d);
 
@@ -85,9 +83,8 @@ namespace OxToIsmrmrd {
     GERecon::ScanArchivePointer m_scanArchive;
     GERecon::DownloadDataPointer m_downloadDataPtr;
     GERecon::Control::ProcessingControlPointer m_processingControl;
-    std::shared_ptr<SequenceConverter> m_converter;
 
-    logstream log_;
+    logstream m_log;
   };
 
 } // namespace OxToIsmrmrd

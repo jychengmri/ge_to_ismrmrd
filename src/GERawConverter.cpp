@@ -2,38 +2,35 @@
 /** @file GERawConverter.cpp */
 #include <iostream>
 #include <stdexcept>
+#include <string>
 
 #include <libxml/xmlschemas.h>
 #include <libxslt/xslt.h>
 #include <libxslt/transform.h>
 #include <libxslt/xsltutils.h>
 
+// Orchestra
 #include <Orchestra/Acquisition/ControlPacket.h>
 #include <Orchestra/Acquisition/ControlTypes.h>
 #include <Orchestra/Acquisition/Core/ArchiveStorage.h>
 #include <Orchestra/Acquisition/DataTypes.h>
 #include <Orchestra/Acquisition/FrameControl.h>
-
 #include <Orchestra/Legacy/LegacyImageDB.h>
 #include <Orchestra/Legacy/LegacyRdbm.h>
 #include <Orchestra/Legacy/LxControlSource.h>
 #include <Orchestra/Legacy/LegacyForwardDeclarations.h>
 #include <Orchestra/Legacy/DicomSeries.h>
 #include <Orchestra/Legacy/PoolHeader/HeaderMap.h>
-
 #include <System/Utilities/CommonTypes.h>
 #include <System/Utilities/StructMap.h>
 #include <System/Utilities/StructEntry.h>
-
 #include <Orchestra/Common/DataSampleType.h>
 #include <Orchestra/Common/ArchiveHeader.h>
 #include <Orchestra/Common/PrepData.h>
 #include <Orchestra/Common/ImageCorners.h>
 #include <Orchestra/Common/SliceInfoTable.h>
 #include <Orchestra/Common/SliceOrientation.h>
-
 #include <Orchestra/Control/ProcessingControl.h>
-
 #include <Dicom/MR/Image.h>
 #include <Dicom/MR/ImageModule.h>
 #include <Dicom/MR/PrivateAcquisitionModule.h>
@@ -44,11 +41,12 @@
 #include <Dicom/EquipmentModule.h>
 #include <Dicom/ImagePlaneModule.h>
 
+// ISMRMRD
+#include <ismrmrd/version.h>
+
 // Local
 #include "GERawConverter.h"
 #include "XMLWriter.h"
-#include "GenericConverter.h"
-
 
 namespace OxToIsmrmrd {
 
@@ -76,10 +74,6 @@ namespace OxToIsmrmrd {
         </xs:all>                                                       \
     </xs:complexType>                                                   \
 </xs:schema>";
-
-  static std::string downloadDataToXML(const GERecon::DownloadDataPointer downloadDataPtr);
-  static void lxDownloadDataToXML(XMLWriter* writer,
-                                  const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr);
 
   std::string convert_date(const std::string& date_str) {
     if (date_str.length() == 8) {
@@ -112,18 +106,12 @@ namespace OxToIsmrmrd {
       m_scanArchive(NULL),
       m_downloadDataPtr(NULL),
       m_processingControl(NULL),
-      m_converter(NULL),
-      log_(logging)
+      m_log(logging)
   {
     FILE* fp = NULL;
     if (!(fp = fopen(pfilepath.c_str(), "rb"))) {
       throw std::runtime_error("Failed to open " + pfilepath);
     }
-
-    /*
-      m_psdname = ""; // TODO: find PSD Name in Orchestra Pfile class
-      log_ << "PSDName: " << m_psdname << std::endl;
-    */
 
     if (GERecon::ScanArchive::IsArchiveFilePath(pfilepath)) {
       m_scanArchive = GERecon::ScanArchive::Create(pfilepath, GESystem::Archive::LoadMode);
@@ -147,16 +135,16 @@ namespace OxToIsmrmrd {
       m_isScanArchive = false;
     }
 
-    m_converter = std::shared_ptr<SequenceConverter>(new GenericConverter());
   } // constructor GERawConverter::GERawConverter()
 
 
   void GERawConverter::useStylesheetFilename(const std::string& filename)
   {
-    log_ << "Loading stylesheet: " << filename << std::endl;
+    m_log << "Loading stylesheet: " << filename << std::endl;
     std::ifstream stream(filename.c_str(), std::ios::binary);
     useStylesheetStream(stream);
   } // function GERawConverter::useStyelsheetFilename
+
 
   void GERawConverter::useStylesheetStream(std::ifstream& stream)
   {
@@ -167,17 +155,20 @@ namespace OxToIsmrmrd {
     useStylesheetString(sheet);
   }
 
+
   void GERawConverter::useStylesheetString(const std::string& sheet)
   {
     m_stylesheet = sheet;
   }
 
+
   void GERawConverter::useConfigFilename(const std::string& filename)
   {
-    log_ << "Loading configuration: " << filename << std::endl;
+    m_log << "Loading configuration: " << filename << std::endl;
     std::ifstream stream(filename.c_str(), std::ios::binary);
     useConfigStream(stream);
   }
+
 
   void GERawConverter::useConfigStream(std::ifstream& stream)
   {
@@ -188,9 +179,10 @@ namespace OxToIsmrmrd {
     useConfigString(config);
   }
 
+
   bool GERawConverter::validateConfig(std::shared_ptr<xmlDoc> config_doc)
   {
-    log_ << "Validating configuration" << std::endl;
+    m_log << "Validating configuration" << std::endl;
 
     std::shared_ptr<xmlDoc> schema_doc = std::shared_ptr<xmlDoc>(
       xmlParseMemory(g_schema.c_str(), g_schema.size()), xmlFreeDoc);
@@ -245,7 +237,7 @@ namespace OxToIsmrmrd {
       throw std::runtime_error("Invalid configuration");
     }
 
-    log_ << "Searching for sequence mapping" << std::endl;
+    m_log << "Searching for sequence mapping" << std::endl;
 
     xmlNodePtr cur = xmlDocGetRootElement(config_doc.get());
     if (NULL == cur) {
@@ -320,8 +312,11 @@ namespace OxToIsmrmrd {
     if (m_downloadDataPtr == NULL) {
       throw std::runtime_error("DownloadData not loaded");
     }
-    std::string headerXML (downloadDataToXML(m_downloadDataPtr));
-    // std::cout << headerXML << std::endl;
+    ISMRMRD::IsmrmrdHeader header = lxDownloadDataToIsmrmrdHeader();
+    std::stringstream str;
+    ISMRMRD::serialize(header, str);
+    std::string headerXML (str.str());
+    // m_log << headerXML << std::endl;
 
     xmlSubstituteEntitiesDefault(1);
     xmlLoadExtDtdDefaultValue = 1;
@@ -333,7 +328,7 @@ namespace OxToIsmrmrd {
     }
 
     if (m_stylesheet.size() > 0) {
-      log_ << "Applying stylesheet: " << m_stylesheet << std::endl;
+      m_log << "Applying stylesheet: " << m_stylesheet << std::endl;
       // Normal pointer here because the xsltStylesheet takes ownership
       xmlDocPtr stylesheet_doc = xmlParseMemory(m_stylesheet.c_str(), m_stylesheet.size());
       if (NULL == stylesheet_doc) {
@@ -379,26 +374,6 @@ namespace OxToIsmrmrd {
     return std::string(m_recon_config);
   }
 
-
-  /**
-   * Gets the number of views in the pfile
-   */
-  unsigned int GERawConverter::getNumViews(void)
-  {
-    return m_pfile->ViewCount();
-  }
-
-  unsigned int GERawConverter::getNumEchoes(void)
-  {
-    return m_processingControl->Value<int>("NumEchoes");
-  }
-
-  unsigned int GERawConverter::getNumPhases(void)
-  {
-    return m_processingControl->Value<int>("NumPhases");
-  }
-
-
   /**
    * Sets the PFile origin to the RDS client
    *
@@ -408,126 +383,302 @@ namespace OxToIsmrmrd {
   {
   }
 
-  static std::string downloadDataToXML(const GERecon::DownloadDataPointer downloadDataPtr) {
-    XMLWriter writer;
-    const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr =
-      boost::dynamic_pointer_cast<GERecon::Legacy::LxDownloadData>(downloadDataPtr);
-    writer.startDocument();
-    writer.startElement("Header");
-    lxDownloadDataToXML(&writer, lxDownloadDataPtr);
-    writer.endDocument();
 
-    return writer.getXML();
-  } // function downloadDataToXML()
-
-
-  static void lxDownloadDataToXML(XMLWriter* writer,
-                                  const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr)
+  ISMRMRD::IsmrmrdHeader GERawConverter::lxDownloadDataToIsmrmrdHeader()
   {
+    const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr =
+          boost::dynamic_pointer_cast<GERecon::Legacy::LxDownloadData>(m_downloadDataPtr);
     const GERecon::Legacy::LxDownloadData& lxDownloadData = *lxDownloadDataPtr.get();
     auto rdbHeader = lxDownloadData.RawHeader();
-    const GERecon::Legacy::MrImageDataTypeStruct& imageHeader = lxDownloadData.ImageHeaderData();
-    // auto imageHeader = lxDownloadData.ImageHeaderData();
+    //const GERecon::Legacy::MrImageDataTypeStruct& imageHeader = lxDownloadData.ImageHeaderData();
+    auto imageHeader = lxDownloadData.ImageHeaderData();
     const boost::shared_ptr<GERecon::Legacy::LxControlSource> controlSource =
       boost::make_shared<GERecon::Legacy::LxControlSource>(lxDownloadDataPtr);
-    auto processingControl = controlSource->CreateOrchestraProcessingControl();
-    // processingControl->SaveAsXml("processingControl.xml");
-
-    writer->formatElement("NumAcquisitions", "%d", processingControl->Value<int>("NumAcquisitions"));
-    writer->formatElement("NumSlices", "%d", processingControl->Value<int>("NumSlices"));
-    writer->formatElement("NumPhases", "%d", processingControl->Value<int>("NumPhases"));
-    writer->formatElement("NumEchoes", "%d",  processingControl->Value<int>("NumEchoes"));
-    writer->formatElement("NumChannels", "%d", processingControl->Value<int>("NumChannels"));
-    writer->addBooleanElement("HalfNex", processingControl->ValueStrict<bool>("HalfNex"));
-    writer->addBooleanElement("ChopZ", processingControl->ValueStrict<bool>("ChopZ"));
-    writer->addBooleanElement("Asset", processingControl->ValueStrict<bool>("Asset"));
-
-    /*
-    writer->formatElement("SampleSize", "%u", pfile->SampleSize());
-    //writer->formatElement("SampleType", "%d", pfile->SampleType());
-    writer->formatElement("BaselineViewCount", "%d", pfile->BaselineViewCount());
-    writer->addBooleanElement("IsZEncoded", pfile->IsZEncoded());
-    writer->formatElement("PlaneCount", "%d", pfile->PlaneCount());
-    writer->formatElement("OutputPhaseCount", "%d", pfile->OutputPhaseCount());
-    writer->formatElement("ShotCount", "%d", pfile->ShotCount());
-    writer->formatElement("RepetitionCount", "%d", pfile->RepetitionCount());
-    writer->addBooleanElement("IsEpi", pfile->IsEpi());
-    */
 
     GERecon::Legacy::DicomSeries legacySeries(lxDownloadDataPtr);
     GEDicom::SeriesPointer series = legacySeries.Series();
     GEDicom::SeriesModulePointer seriesModule = series->GeneralModule();
-    writer->startElement("Series");
-    writer->formatElement("Number", "%d", lxDownloadDataPtr->SeriesNumber());
-    writer->formatElement("UID", "%s", seriesModule->UID().c_str());
-    writer->formatElement("Description", "%s", seriesModule->SeriesDescription().c_str());
-    //writer->formatElement("Modality", "%s", seriesModule->Modality());
-    writer->formatElement("Laterality", "%s", seriesModule->Laterality().c_str());
-    writer->formatElement("Date", "%s", convert_date(seriesModule->Date()).c_str());
-    writer->formatElement("Time", "%s", convert_time(seriesModule->Time()).c_str());
-    writer->formatElement("ProtocolName", "%s", seriesModule->ProtocolName().c_str());
-    writer->formatElement("OperatorName", "%s", seriesModule->OperatorName().c_str());
-    writer->formatElement("PpsDescription", "%s", seriesModule->PpsDescription().c_str());
-    //writer->formatElement("PatientEntry", "%s", seriesModule->Entry());
-    //writer->formatElement("PatientOrientation", "%s", seriesModule->Orientation());
-    writer->endElement();
-
     GEDicom::StudyPointer study = series->Study();
     GEDicom::StudyModulePointer studyModule = study->GeneralModule();
-    writer->startElement("Study");
-    writer->formatElement("Number", "%d", studyModule->StudyNumber());
-    writer->formatElement("UID", "%s", studyModule->UID().c_str());
-    writer->formatElement("Description", "%s", studyModule->StudyDescription().c_str());
-    writer->formatElement("Date", "%s", convert_date(studyModule->Date()).c_str());
-    writer->formatElement("Time", "%s", convert_time(studyModule->Time()).c_str());
-    writer->formatElement("ReferringPhysician", "%s", studyModule->ReferringPhysician().c_str());
-    writer->formatElement("AccessionNumber", "%s", studyModule->AccessionNumber().c_str());
-    writer->formatElement("ReadingPhysician", "%s", studyModule->ReadingPhysician().c_str());
-    writer->endElement();
-
     GEDicom::PatientStudyModulePointer patientStudyModule = study->PatientStudyModule();
     GEDicom::PatientPointer patient = study->Patient();
     GEDicom::PatientModulePointer patientModule = patient->GeneralModule();
-    writer->startElement("Patient");
-    writer->formatElement("Name", "%s", patientModule->Name().c_str());
-    writer->formatElement("ID", "%s", patientModule->ID().c_str());
-    writer->formatElement("Birthdate", "%s", convert_date(patientModule->Birthdate()).c_str());
-    writer->formatElement("Gender", "%s", patientModule->Gender().c_str());
-    writer->formatElement("Age", "%s", patientStudyModule->Age().c_str());
-    writer->formatElement("Weight", "%s", patientStudyModule->Weight().c_str());
-    writer->formatElement("History", "%s", patientStudyModule->History().c_str());
-    writer->endElement();
+    const GERecon::SliceInfoTable sliceTable = m_processingControl->ValueStrict<GERecon::SliceInfoTable>("SliceTable");
+    auto sliceOrientation = sliceTable.SliceOrientation(0);
+    auto sliceCorners = sliceTable.AcquiredSliceCorners(0);
+    auto imageCorners = GERecon::ImageCorners(sliceCorners, sliceOrientation);
+    auto grayscaleImage = GEDicom::GrayscaleImage(128, 128);
+    auto dicomImage = GERecon::Legacy::DicomImage(grayscaleImage, 0, imageCorners, series, *lxDownloadDataPtr);
+    auto imageModule = dicomImage.ImageModule();
+    auto imagePlaneModule = dicomImage.ImagePlaneModule();
 
+
+    m_log << "Populating ISMRMRD header..." << std::endl;
+    ISMRMRD::IsmrmrdHeader ismrmrd_header;
+    ismrmrd_header.version = ISMRMRD_XMLHDR_VERSION;
+
+    m_log << "   Loading subject information..." << std::endl;
+    ISMRMRD::SubjectInformation subjectInformation;
+    subjectInformation.patientName = patientModule->Name().c_str();
+    subjectInformation.patientWeight_kg = std::stof(patientStudyModule->Weight());
+    subjectInformation.patientID = patientModule->ID().c_str();
+    subjectInformation.patientBirthdate = convert_date(patientModule->Birthdate()).c_str();
+    subjectInformation.patientGender = patientModule->Gender().c_str();
+    ismrmrd_header.subjectInformation = subjectInformation;
+    // TODO: IRB info is stored here
+    // writer->formatElement("History", "%s", patientStudyModule->History().c_str());
+
+
+    m_log << "   Loading study information..." << std::endl;
+    ISMRMRD::StudyInformation studyInformation;
+    studyInformation.studyDate = convert_date(studyModule->Date()).c_str();
+    studyInformation.studyTime = convert_time(studyModule->Time()).c_str();
+    studyInformation.studyID = std::to_string(studyModule->StudyNumber());
+    studyInformation.accessionNumber = std::strtol(studyModule->AccessionNumber().c_str(), NULL, 0);
+    studyInformation.referringPhysicianName = studyModule->ReferringPhysician().c_str();
+    studyInformation.studyDescription = studyModule->StudyDescription().c_str();
+    studyInformation.studyInstanceUID = studyModule->UID().c_str();
+    ismrmrd_header.studyInformation = studyInformation;
+    //writer->formatElement("ReadingPhysician", "%s", studyModule->ReadingPhysician().c_str());
+
+    m_log << "   Loading measurement information..." << std::endl;
+    ISMRMRD::MeasurementInformation measurementInformation;
+    // measurementInformation.measurementID = lxDownloadDataPtr->SeriesNumber();
+    measurementInformation.seriesDate = convert_date(seriesModule->Date()).c_str();
+    measurementInformation.seriesTime = convert_date(seriesModule->Time()).c_str();
+    measurementInformation.patientPosition = seriesModule->PpsDescription().c_str(); //?
+    measurementInformation.initialSeriesNumber = lxDownloadDataPtr->SeriesNumber();
+    measurementInformation.protocolName = seriesModule->ProtocolName().c_str();
+    measurementInformation.seriesDescription = seriesModule->SeriesDescription().c_str();
+    //measurementInformation.measurementDependency = ?
+    measurementInformation.seriesInstanceUIDRoot = seriesModule->UID().c_str();
+    // measurementInformation.frameOfReferenceUID = ?
+    // measurementInformation.referencedImageSequence = ?
+    // writer->formatElement("Laterality", "%s", seriesModule->Laterality().c_str());
+    // writer->formatElement("OperatorName", "%s", seriesModule->OperatorName().c_str());
+    ismrmrd_header.measurementInformation = measurementInformation;
+
+
+    m_log << "   Loading acquisition system information..." << std::endl;
+    ISMRMRD::AcquisitionSystemInformation acquisitionSystemInformation;
     GEDicom::EquipmentPointer equipment = series->Equipment();
     GEDicom::EquipmentModulePointer equipmentModule = equipment->GeneralModule();
-    writer->startElement("Equipment");
-    writer->formatElement("Manufacturer", "%s", equipmentModule->Manufacturer().c_str());
-    writer->formatElement("Institution", "%s", equipmentModule->Institution().c_str());
-    writer->formatElement("Station", "%s", equipmentModule->Station().c_str());
-    writer->formatElement("ManufacturerModel", "%s", equipmentModule->ManufacturerModel().c_str());
-    writer->formatElement("DeviceSerialNumber", "%s", equipmentModule->DeviceSerialNumber().c_str());
-    writer->formatElement("SoftwareVersion", "%s", equipmentModule->SoftwareVersion().c_str());
-    writer->formatElement("PpsPerformedStation", "%s", equipmentModule->PpsPerformedStation().c_str());
-    writer->formatElement("PpsPerformedLocation", "%s", equipmentModule->PpsPerformedLocation().c_str());
-    writer->endElement();
+    acquisitionSystemInformation.systemVendor = equipmentModule->Manufacturer().c_str();
+    acquisitionSystemInformation.systemModel = equipmentModule->ManufacturerModel().c_str();
+    acquisitionSystemInformation.systemFieldStrength_T = std::strtof(imageModule->MagneticFieldStrength().c_str(), 0);
+    acquisitionSystemInformation.relativeReceiverNoiseBandwidth = rdbHeader.rdb_hdr_bw;
+    acquisitionSystemInformation.receiverChannels = m_processingControl->Value<int>("NumChannels");
+    ISMRMRD::CoilLabel coilLabel;
+    // TODO: Will have problems converting int to short
+    coilLabel.coilNumber = (unsigned short)m_processingControl->Value<int>("CoilConfigUID");
+    coilLabel.coilName = lxDownloadDataPtr->Coil().c_str();
+    acquisitionSystemInformation.coilLabel.push_back(coilLabel);
+    acquisitionSystemInformation.institutionName = equipmentModule->Institution().c_str();
+    acquisitionSystemInformation.stationName = equipmentModule->Station().c_str();
+    //writer->formatElement("DeviceSerialNumber", "%s", equipmentModule->DeviceSerialNumber().c_str());
+    //writer->formatElement("SoftwareVersion", "%s", equipmentModule->SoftwareVersion().c_str());
+    //writer->formatElement("PpsPerformedStation", "%s", equipmentModule->PpsPerformedStation().c_str());
+    //writer->formatElement("PpsPerformedLocation", "%s", equipmentModule->PpsPerformedLocation().c_str());
+    ismrmrd_header.acquisitionSystemInformation = acquisitionSystemInformation;
 
-    writer->formatElement("AcquiredXRes", "%d", processingControl->Value<int>("AcquiredXRes"));
-    writer->formatElement("AcquiredYRes", "%d", processingControl->Value<int>("AcquiredYRes"));
-    writer->formatElement("AcquiredZRes", "%d", processingControl->Value<int>("AcquiredZRes"));
-    writer->addBooleanElement("Is3DAcquisition", processingControl->Value<bool>("Is3DAcquisition"));
-    writer->formatElement("NumBaselineViews", "%d", processingControl->Value<int>("NumBaselineViews"));
-    writer->formatElement("NumVolumes", "%d", processingControl->Value<int>("NumVolumes"));
-    writer->addBooleanElement("EvenEchoFrequencyFlip", processingControl->Value<bool>("EvenEchoFrequencyFlip"));
-    writer->addBooleanElement("OddEchoFrequencyFlip", processingControl->Value<bool>("OddEchoFrequencyFlip"));
-    writer->addBooleanElement("EvenEchoPhaseFlip", processingControl->Value<bool>("EvenEchoPhaseFlip"));
-    writer->addBooleanElement("OddEchoPhaseFlip", processingControl->Value<bool>("OddEchoPhaseFlip"));
-    writer->addBooleanElement("HalfEcho", processingControl->Value<bool>("HalfEcho"));
-    writer->addBooleanElement("HalfNex", processingControl->Value<bool>("HalfNex"));
-    writer->addBooleanElement("NoFrequencyWrapData", processingControl->Value<bool>("NoFrequencyWrapData"));
-    writer->addBooleanElement("NoPhaseWrapData", processingControl->Value<bool>("NoPhaseWrapData"));
+    m_log << "  Loading experimental conditions..." << std::endl;
+    ismrmrd_header.experimentalConditions.H1resonanceFrequency_Hz = std::strtol(imageModule->ImagingFrequency().c_str(), NULL, 0);
+
+    m_log << "   Loading encoding information..." << std::endl;
+    ISMRMRD::Encoding encoding;
+    bool is3D = m_processingControl->Value<bool>("Is3DAcquisition");
+    int acquiredXRes = m_processingControl->Value<int>("AcquiredXRes");
+    int acquiredYRes = m_processingControl->Value<int>("AcquiredYRes");
+    int acquiredZRes = m_processingControl->Value<int>("AcquiredZRes");
+    int transformXRes = m_processingControl->Value<int>("TransformXRes");
+    int transformYRes = m_processingControl->Value<int>("TransformYRes");
+    int transformZRes = m_processingControl->Value<int>("AcquiredZRes");
+    float pixelSizeX = imagePlaneModule->PixelSizeX();
+    float pixelSizeY = imagePlaneModule->PixelSizeY();
+    float pixelSizeZ = imagePlaneModule->SliceThickness();
+    short zipFactor = rdbHeader.rdb_hdr_zip_factor;
+    encoding.encodedSpace.matrixSize.x = acquiredXRes;
+    encoding.encodedSpace.matrixSize.y = acquiredYRes;
+    encoding.encodedSpace.matrixSize.z = acquiredZRes;
+    encoding.encodedSpace.fieldOfView_mm.x = transformXRes * pixelSizeX;
+    encoding.encodedSpace.fieldOfView_mm.y = transformYRes * pixelSizeY;
+    if (is3D)
+      encoding.encodedSpace.fieldOfView_mm.z = acquiredZRes * pixelSizeZ;
+    else
+      encoding.encodedSpace.fieldOfView_mm.z = pixelSizeZ;
+    encoding.reconSpace.matrixSize.x = transformXRes;
+    encoding.reconSpace.matrixSize.y = transformYRes;
+    encoding.reconSpace.matrixSize.z = transformZRes * zipFactor;
+    encoding.reconSpace.fieldOfView_mm.x = transformXRes * pixelSizeX;
+    encoding.reconSpace.fieldOfView_mm.y = transformYRes * pixelSizeY;
+    if (is3D)
+      encoding.reconSpace.fieldOfView_mm.z = acquiredZRes * pixelSizeZ;
+    else
+      encoding.reconSpace.fieldOfView_mm.z = pixelSizeZ;
+    encoding.trajectory = "cartesian";
+    encoding.encodingLimits.kspace_encoding_step_1 = ISMRMRD::Limit(0, acquiredYRes, acquiredYRes / 2);
+    encoding.encodingLimits.kspace_encoding_step_2 = ISMRMRD::Limit(0, acquiredZRes, acquiredZRes / 2);
+    unsigned short numEchoes = (unsigned short) m_processingControl->Value<int>("NumEchoes");
+    encoding.encodingLimits.contrast = ISMRMRD::Limit(0, numEchoes, numEchoes / 2);
+    unsigned short numPhases = (unsigned short) m_processingControl->Value<int>("NumPhases");
+    encoding.encodingLimits.phase = ISMRMRD::Limit(0, numPhases, numPhases / 2);
+    // encoding.parallelImaging
+    ismrmrd_header.encoding.push_back(encoding);
+
+    ISMRMRD::SequenceParameters sequenceParameters;
+    std::vector<float> TR;
+    TR.push_back(std::strtof(imageModule->RepetitionTime().c_str(), 0));
+    sequenceParameters.TR = TR;
+    std::vector<float> TE;
+    TE.push_back(1e-3 * rdbHeader.rdb_hdr_te);
+    if (numEchoes > 1)
+      TE.push_back(1e-3 * rdbHeader.rdb_hdr_te2);
+    sequenceParameters.TE = TE;
+    if (imageModule->InversionTime().length() > 0) {
+      std::vector<float> TI;
+      TI.push_back(std::strtof(imageModule->InversionTime().c_str(), 0));
+      sequenceParameters.TI = TI;
+    }
+    std::vector<float> flipAngle_deg;
+    flipAngle_deg.push_back(std::strtof(imageModule->FlipAngle().c_str(), 0));
+    sequenceParameters.flipAngle_deg = flipAngle_deg;
+    sequenceParameters.sequence_type = imageModule->ScanSequence().c_str();
+    ismrmrd_header.sequenceParameters = sequenceParameters;
+
+    ISMRMRD::UserParameters userParameters;
+    userParameters.userParameterString.push_back({.name = "PSDNAME", .value = imageHeader.psdname});
+    userParameters.userParameterString.push_back({.name = "PSDNameInternal", .value = imageHeader.psd_iname});
+    userParameters.userParameterString.push_back({.name = "History", .value = patientStudyModule->History().c_str()});
+
+    userParameters.userParameterLong.push_back({.name = "ChopX", .value = m_processingControl->Value<bool>("ChopX")});
+    userParameters.userParameterLong.push_back({.name = "ChopY", .value = m_processingControl->Value<bool>("ChopY")});
+    userParameters.userParameterLong.push_back({.name = "ChopZ", .value = m_processingControl->Value<bool>("ChopZ")});
+    userParameters.userParameterLong.push_back({.name = "RHRecon", .value = rdbHeader.rdb_hdr_recon});
+
+    userParameters.userParameterDouble.push_back({.name = "ReconUser0", .value = rdbHeader.rdb_hdr_user0});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser1", .value = rdbHeader.rdb_hdr_user1});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser2", .value = rdbHeader.rdb_hdr_user2});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser3", .value = rdbHeader.rdb_hdr_user3});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser4", .value = rdbHeader.rdb_hdr_user4});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser5", .value = rdbHeader.rdb_hdr_user5});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser6", .value = rdbHeader.rdb_hdr_user6});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser7", .value = rdbHeader.rdb_hdr_user7});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser8", .value = rdbHeader.rdb_hdr_user8});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser9", .value = rdbHeader.rdb_hdr_user9});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser10", .value = rdbHeader.rdb_hdr_user10});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser11", .value = rdbHeader.rdb_hdr_user11});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser12", .value = rdbHeader.rdb_hdr_user12});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser13", .value = rdbHeader.rdb_hdr_user13});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser14", .value = rdbHeader.rdb_hdr_user14});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser15", .value = rdbHeader.rdb_hdr_user15});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser16", .value = rdbHeader.rdb_hdr_user16});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser17", .value = rdbHeader.rdb_hdr_user17});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser18", .value = rdbHeader.rdb_hdr_user18});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser19", .value = rdbHeader.rdb_hdr_user19});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser20", .value = rdbHeader.rdb_hdr_user20});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser21", .value = rdbHeader.rdb_hdr_user21});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser22", .value = rdbHeader.rdb_hdr_user22});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser23", .value = rdbHeader.rdb_hdr_user23});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser24", .value = rdbHeader.rdb_hdr_user24});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser25", .value = rdbHeader.rdb_hdr_user25});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser26", .value = rdbHeader.rdb_hdr_user26});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser27", .value = rdbHeader.rdb_hdr_user27});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser28", .value = rdbHeader.rdb_hdr_user28});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser29", .value = rdbHeader.rdb_hdr_user29});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser30", .value = rdbHeader.rdb_hdr_user30});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser31", .value = rdbHeader.rdb_hdr_user31});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser32", .value = rdbHeader.rdb_hdr_user32});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser33", .value = rdbHeader.rdb_hdr_user33});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser34", .value = rdbHeader.rdb_hdr_user34});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser35", .value = rdbHeader.rdb_hdr_user35});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser36", .value = rdbHeader.rdb_hdr_user36});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser37", .value = rdbHeader.rdb_hdr_user37});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser38", .value = rdbHeader.rdb_hdr_user38});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser39", .value = rdbHeader.rdb_hdr_user39});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser40", .value = rdbHeader.rdb_hdr_user40});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser41", .value = rdbHeader.rdb_hdr_user41});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser42", .value = rdbHeader.rdb_hdr_user42});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser43", .value = rdbHeader.rdb_hdr_user43});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser44", .value = rdbHeader.rdb_hdr_user44});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser45", .value = rdbHeader.rdb_hdr_user45});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser46", .value = rdbHeader.rdb_hdr_user46});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser47", .value = rdbHeader.rdb_hdr_user47});
+    userParameters.userParameterDouble.push_back({.name = "ReconUser48", .value = rdbHeader.rdb_hdr_user48});
+
+    userParameters.userParameterDouble.push_back({.name = "User0", .value = imageHeader.user0});
+    userParameters.userParameterDouble.push_back({.name = "User1", .value = imageHeader.user1});
+    userParameters.userParameterDouble.push_back({.name = "User2", .value = imageHeader.user2});
+    userParameters.userParameterDouble.push_back({.name = "User3", .value = imageHeader.user3});
+    userParameters.userParameterDouble.push_back({.name = "User4", .value = imageHeader.user4});
+    userParameters.userParameterDouble.push_back({.name = "User5", .value = imageHeader.user5});
+    userParameters.userParameterDouble.push_back({.name = "User6", .value = imageHeader.user6});
+    userParameters.userParameterDouble.push_back({.name = "User7", .value = imageHeader.user7});
+    userParameters.userParameterDouble.push_back({.name = "User8", .value = imageHeader.user8});
+    userParameters.userParameterDouble.push_back({.name = "User9", .value = imageHeader.user9});
+    userParameters.userParameterDouble.push_back({.name = "User10", .value = imageHeader.user10});
+    userParameters.userParameterDouble.push_back({.name = "User11", .value = imageHeader.user11});
+    userParameters.userParameterDouble.push_back({.name = "User12", .value = imageHeader.user12});
+    userParameters.userParameterDouble.push_back({.name = "User13", .value = imageHeader.user13});
+    userParameters.userParameterDouble.push_back({.name = "User14", .value = imageHeader.user14});
+    userParameters.userParameterDouble.push_back({.name = "User15", .value = imageHeader.user15});
+    userParameters.userParameterDouble.push_back({.name = "User16", .value = imageHeader.user16});
+    userParameters.userParameterDouble.push_back({.name = "User17", .value = imageHeader.user17});
+    userParameters.userParameterDouble.push_back({.name = "User18", .value = imageHeader.user18});
+    userParameters.userParameterDouble.push_back({.name = "User19", .value = imageHeader.user19});
+    userParameters.userParameterDouble.push_back({.name = "User20", .value = imageHeader.user20});
+    userParameters.userParameterDouble.push_back({.name = "User21", .value = imageHeader.user21});
+    userParameters.userParameterDouble.push_back({.name = "User22", .value = imageHeader.user22});
+    userParameters.userParameterDouble.push_back({.name = "User23", .value = imageHeader.user23});
+    userParameters.userParameterDouble.push_back({.name = "User24", .value = imageHeader.user24});
+    userParameters.userParameterDouble.push_back({.name = "User25", .value = imageHeader.user25});
+    userParameters.userParameterDouble.push_back({.name = "User26", .value = imageHeader.user26});
+    userParameters.userParameterDouble.push_back({.name = "User27", .value = imageHeader.user27});
+    userParameters.userParameterDouble.push_back({.name = "User28", .value = imageHeader.user28});
+    userParameters.userParameterDouble.push_back({.name = "User29", .value = imageHeader.user29});
+    userParameters.userParameterDouble.push_back({.name = "User30", .value = imageHeader.user30});
+    userParameters.userParameterDouble.push_back({.name = "User31", .value = imageHeader.user31});
+    userParameters.userParameterDouble.push_back({.name = "User32", .value = imageHeader.user32});
+    userParameters.userParameterDouble.push_back({.name = "User33", .value = imageHeader.user33});
+    userParameters.userParameterDouble.push_back({.name = "User34", .value = imageHeader.user34});
+    userParameters.userParameterDouble.push_back({.name = "User35", .value = imageHeader.user35});
+    userParameters.userParameterDouble.push_back({.name = "User36", .value = imageHeader.user36});
+    userParameters.userParameterDouble.push_back({.name = "User37", .value = imageHeader.user37});
+    userParameters.userParameterDouble.push_back({.name = "User38", .value = imageHeader.user38});
+    userParameters.userParameterDouble.push_back({.name = "User39", .value = imageHeader.user39});
+    userParameters.userParameterDouble.push_back({.name = "User40", .value = imageHeader.user40});
+    userParameters.userParameterDouble.push_back({.name = "User41", .value = imageHeader.user41});
+    userParameters.userParameterDouble.push_back({.name = "User42", .value = imageHeader.user42});
+    userParameters.userParameterDouble.push_back({.name = "User43", .value = imageHeader.user43});
+    userParameters.userParameterDouble.push_back({.name = "User44", .value = imageHeader.user44});
+    userParameters.userParameterDouble.push_back({.name = "User45", .value = imageHeader.user45});
+    userParameters.userParameterDouble.push_back({.name = "User46", .value = imageHeader.user46});
+    userParameters.userParameterDouble.push_back({.name = "User47", .value = imageHeader.user47});
+    userParameters.userParameterDouble.push_back({.name = "User48", .value = imageHeader.user48});
+
+    ismrmrd_header.userParameters = userParameters;
+
+    /*
+    writer->formatElement("ImageType", "%s", imageModule->ImageType().c_str());
+    writer->formatElement("ScanSequence", "%s", imageModule->ScanSequence().c_str());
+    writer->formatElement("SequenceVariant", "%s", imageModule->SequenceVariant().c_str());
+    writer->formatElement("ScanOptions", "%s", imageModule->ScanOptions().c_str());
+    writer->formatElement("AcquisitionType", "%d", imageModule->AcqType());
+    writer->formatElement("PhaseEncodeDirection", "%d", imageModule->PhaseEncodeDirection());
+    writer->formatElement("SliceSpacing", "%s", imageModule->SliceSpacing().c_str());
+    writer->formatElement("EchoTrainLength", "%s", imageModule->EchoTrainLength().c_str());
+     */
+
+    /*
+    Optional<UserParameters> userParameters;
+    */
+
+    /*
     writer->formatElement("NumAcquisitions", "%d", processingControl->Value<int>("NumAcquisitions"));
-    writer->formatElement("NumEchoes", "%d", processingControl->Value<int>("NumEchoes"));
-    writer->formatElement("DataSampleSize", "%d", processingControl->Value<int>("DataSampleSize")); // in bytes
+    writer->formatElement("NumSlices", "%d", processingControl->Value<int>("NumSlices"));
+    writer->addBooleanElement("HalfNex", processingControl->ValueStrict<bool>("HalfNex"));
+    writer->addBooleanElement("ChopZ", processingControl->ValueStrict<bool>("ChopZ"));
+    writer->addBooleanElement("Asset", processingControl->ValueStrict<bool>("Asset"));
+
 
     GERecon::PatientPosition patientPosition =
       static_cast<GERecon::PatientPosition>(processingControl->Value<int>("PatientPosition"));
@@ -554,7 +705,6 @@ namespace OxToIsmrmrd {
     writer->formatElement("Landmark", "%f", processingControl->Value<int>("Landmark"));
     writer->formatElement("ExamNumber", "%u", processingControl->Value<int>("ExamNumber"));
     writer->formatElement("CoilConfigUID", "%u", processingControl->Value<int>("CoilConfigUID"));
-    writer->formatElement("Coil", "%s", lxDownloadDataPtr->Coil().c_str());
     //writer->formatElement("RawPassSize", "%llu", processingControl->Value<int>("RawPassSize"));
 
     // see AcquisitionParameters documentation for more boolean parameters
@@ -562,13 +712,6 @@ namespace OxToIsmrmrd {
     writer->addBooleanElement("CreateMagnitudeImages", processingControl->Value<bool>("CreateMagnitudeImages"));
     writer->addBooleanElement("CreatePhaseImages", processingControl->Value<bool>("CreatePhaseImages"));
 
-    writer->formatElement("TransformXRes", "%d", processingControl->Value<int>("TransformXRes"));
-    writer->formatElement("TransformYRes", "%d", processingControl->Value<int>("TransformYRes"));
-    writer->formatElement("TransformZRes", "%d", processingControl->Value<int>("TransformZRes"));
-
-    writer->addBooleanElement("ChopX", processingControl->Value<bool>("ChopX"));
-    writer->addBooleanElement("ChopY", processingControl->Value<bool>("ChopY"));
-    writer->addBooleanElement("ChopZ", processingControl->Value<bool>("ChopZ"));
 
     // TODO: map SliceOrder to a string
     // writer->formatElement("SliceOrder", "%s", processingControl->Value<int>("SliceOrder"));
@@ -577,37 +720,6 @@ namespace OxToIsmrmrd {
     // writer->formatElement("ImageXRes", "%d", processingControl->Value<int>("ImageXRes"));
     // writer->formatElement("ImageYRes", "%d", processingControl->Value<int>("ImageYRes"));
 
-    GERecon::PrepData prepData(lxDownloadDataPtr);
-    GERecon::ArchiveHeader archiveHeader("ScanArchive", prepData);
-
-    const GERecon::SliceInfoTable sliceTable = processingControl->ValueStrict<GERecon::SliceInfoTable>("SliceTable");
-    auto sliceOrientation = sliceTable.SliceOrientation(0);
-    auto sliceCorners = sliceTable.AcquiredSliceCorners(0);
-    auto imageCorners = GERecon::ImageCorners(sliceCorners, sliceOrientation);
-    auto grayscaleImage = GEDicom::GrayscaleImage(128, 128);
-    auto dicomImage = GERecon::Legacy::DicomImage(grayscaleImage, 0, imageCorners, series, *lxDownloadDataPtr);
-    auto imageModule = dicomImage.ImageModule();
-
-    writer->startElement("Image");
-    writer->formatElement("PSDName", "%s", imageHeader.psdname);
-    writer->formatElement("PSDNameInternal", "%s", imageHeader.psd_iname);
-    writer->formatElement("EchoTime", "%s", imageModule->EchoTime().c_str());
-    if (processingControl->Value<int>("NumEchoes") > 1)
-      writer->formatElement("EchoTime2", "%g", 1e-3 * ((float) rdbHeader.rdb_hdr_te2));
-    writer->formatElement("RepetitionTime", "%s", imageModule->RepetitionTime().c_str());
-    if (imageModule->InversionTime().length() > 0)
-      writer->formatElement("InversionTime", "%s", imageModule->InversionTime().c_str());
-    writer->formatElement("ImageType", "%s", imageModule->ImageType().c_str());
-    writer->formatElement("ScanSequence", "%s", imageModule->ScanSequence().c_str());
-    writer->formatElement("SequenceVariant", "%s", imageModule->SequenceVariant().c_str());
-    writer->formatElement("ScanOptions", "%s", imageModule->ScanOptions().c_str());
-    writer->formatElement("AcquisitionType", "%d", imageModule->AcqType());
-    writer->formatElement("PhaseEncodeDirection", "%d", imageModule->PhaseEncodeDirection());
-    writer->formatElement("ImagingFrequency", "%s", imageModule->ImagingFrequency().c_str());
-    writer->formatElement("MagneticFieldStrength", "%s", imageModule->MagneticFieldStrength().c_str());
-    writer->formatElement("SliceSpacing", "%s", imageModule->SliceSpacing().c_str());
-    writer->formatElement("FlipAngle", "%s", imageModule->FlipAngle().c_str());
-    writer->formatElement("EchoTrainLength", "%s", imageModule->EchoTrainLength().c_str());
 
     auto imageModuleBase = dicomImage.ImageModuleBase();
     writer->formatElement("AcquisitionDate", "%s", convert_date(imageModuleBase->AcquisitionDate()).c_str());
@@ -620,163 +732,61 @@ namespace OxToIsmrmrd {
     writer->formatElement("ImagePosition", "%s", imagePlaneModule->ImagePosition().c_str());
     writer->formatElement("SliceThickness", "%f", imagePlaneModule->SliceThickness());
     writer->formatElement("SliceLocation", "%f", imagePlaneModule->SliceLocation());
-    writer->formatElement("PixelSizeX", "%f", imagePlaneModule->PixelSizeX());
-    writer->formatElement("PixelSizeY", "%f", imagePlaneModule->PixelSizeY());
+    */
 
-    auto privateAcquisitionModule = dicomImage.PrivateAcquisitionModule();
-    writer->formatElement("SecondEcho", "%s", privateAcquisitionModule->SecondEcho().c_str());
-
-    writer->startElement("UserVariable");
-    writer->formatElement("User", "%f", imageHeader.user0);
-    writer->formatElement("User", "%f", imageHeader.user1);
-    writer->formatElement("User", "%f", imageHeader.user2);
-    writer->formatElement("User", "%f", imageHeader.user3);
-    writer->formatElement("User", "%f", imageHeader.user4);
-    writer->formatElement("User", "%f", imageHeader.user5);
-    writer->formatElement("User", "%f", imageHeader.user6);
-    writer->formatElement("User", "%f", imageHeader.user7);
-    writer->formatElement("User", "%f", imageHeader.user8);
-    writer->formatElement("User", "%f", imageHeader.user9);
-    writer->formatElement("User", "%f", imageHeader.user10);
-    writer->formatElement("User", "%f", imageHeader.user11);
-    writer->formatElement("User", "%f", imageHeader.user12);
-    writer->formatElement("User", "%f", imageHeader.user13);
-    writer->formatElement("User", "%f", imageHeader.user14);
-    writer->formatElement("User", "%f", imageHeader.user15);
-    writer->formatElement("User", "%f", imageHeader.user16);
-    writer->formatElement("User", "%f", imageHeader.user17);
-    writer->formatElement("User", "%f", imageHeader.user18);
-    writer->formatElement("User", "%f", imageHeader.user19);
-    writer->formatElement("User", "%f", imageHeader.user20);
-    writer->formatElement("User", "%f", imageHeader.user21);
-    writer->formatElement("User", "%f", imageHeader.user22);
-    writer->formatElement("User", "%f", imageHeader.user23);
-    writer->formatElement("User", "%f", imageHeader.user24);
-    writer->formatElement("User", "%f", imageHeader.user25);
-    writer->formatElement("User", "%f", imageHeader.user26);
-    writer->formatElement("User", "%f", imageHeader.user27);
-    writer->formatElement("User", "%f", imageHeader.user28);
-    writer->formatElement("User", "%f", imageHeader.user29);
-    writer->formatElement("User", "%f", imageHeader.user30);
-    writer->formatElement("User", "%f", imageHeader.user31);
-    writer->formatElement("User", "%f", imageHeader.user32);
-    writer->formatElement("User", "%f", imageHeader.user33);
-    writer->formatElement("User", "%f", imageHeader.user34);
-    writer->formatElement("User", "%f", imageHeader.user35);
-    writer->formatElement("User", "%f", imageHeader.user36);
-    writer->formatElement("User", "%f", imageHeader.user37);
-    writer->formatElement("User", "%f", imageHeader.user38);
-    writer->formatElement("User", "%f", imageHeader.user39);
-    writer->formatElement("User", "%f", imageHeader.user40);
-    writer->formatElement("User", "%f", imageHeader.user41);
-    writer->formatElement("User", "%f", imageHeader.user42);
-    writer->formatElement("User", "%f", imageHeader.user43);
-    writer->formatElement("User", "%f", imageHeader.user44);
-    writer->formatElement("User", "%f", imageHeader.user45);
-    writer->formatElement("User", "%f", imageHeader.user46);
-    writer->formatElement("User", "%f", imageHeader.user47);
-    writer->formatElement("User", "%f", imageHeader.user48);
-    writer->endElement();
-
-    writer->startElement("ReconUserVariable");
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user0);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user1);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user2);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user3);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user4);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user5);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user6);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user7);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user8);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user9);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user10);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user11);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user12);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user13);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user14);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user15);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user16);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user17);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user18);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user19);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user20);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user21);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user22);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user23);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user24);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user25);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user26);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user27);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user28);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user29);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user30);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user31);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user32);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user33);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user34);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user35);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user36);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user37);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user38);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user39);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user40);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user41);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user42);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user43);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user44);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user45);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user46);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user47);
-    writer->formatElement("ReconUser", "%f", rdbHeader.rdb_hdr_user48);
-    writer->endElement();
-
-    writer->formatElement("RHRecon", "%d", rdbHeader.rdb_hdr_recon);
-
-    writer->endElement();
+    return ismrmrd_header;
   } // function lxDownloadDataToXML()
 
 
-  size_t GERawConverter::appendAcquisitions(ISMRMRD::Dataset& d) {
+  size_t GERawConverter::appendAcquisitions(ISMRMRD::Dataset& d)
+  {
+    size_t numData = appendNoiseInformation(d);
     if (m_isScanArchive)
-      return appendAcquisitionsFromArchive(d);
+      return numData + appendAcquisitionsFromArchive(d);
     else
-      return appendAcquisitionsFromPfile(d);
-  }
+      return numData + appendAcquisitionsFromPfile(d);
+  } // function GERawConverter::appendAcquisitions()
 
 
-  size_t GERawConverter::appendAcquisitionsFromPfile(ISMRMRD::Dataset& d) {
-    if (m_isScanArchive)
-      return 0;
-
-    const GERecon::Control::ProcessingControlPointer processingControl(m_pfile->CreateOrchestraProcessingControl());
+  size_t GERawConverter::appendNoiseInformation(ISMRMRD::Dataset &d)
+  {
     auto lxDownloadDataPtr =  boost::dynamic_pointer_cast<GERecon::Legacy::LxDownloadData>(m_downloadDataPtr);
     const GERecon::Legacy::LxDownloadData& lxDownloadData = *lxDownloadDataPtr.get();
     const GERecon::Legacy::PrescanHeaderStruct& prescanHeader = lxDownloadData.PrescanHeader();
+    unsigned int numChannels = (unsigned int) m_processingControl->Value<int>("NumChannels");
 
-    unsigned int lenFrame = (unsigned int)processingControl->Value<int>("AcquiredXRes");
-    unsigned int numViews = (unsigned int)processingControl->Value<int>("AcquiredYRes");
-    unsigned int numSlices = (unsigned int)processingControl->Value<int>("AcquiredZRes");
-    unsigned int numChannels = m_pfile->ChannelCount();
+    m_log << "Loading noise std/mean values..." << std::endl;
+    std::vector<size_t> dims = {numChannels};
+    ISMRMRD::NDArray<float> recStd(dims);
+    ISMRMRD::NDArray<float> recMean(dims);
+    for (unsigned int i_channel = 0; i_channel < numChannels; i_channel++) {
+      recStd(i_channel) = prescanHeader.rec_std[i_channel];
+      recMean(i_channel) = prescanHeader.rec_mean[i_channel];
+    }
+
+    d.appendNDArray("rec_std", recStd);
+    d.appendNDArray("rec_mean", recMean);
+
+    return 2;
+  }
+
+
+  size_t GERawConverter::appendAcquisitionsFromPfile(ISMRMRD::Dataset& d)
+  {
+    if (m_isScanArchive)
+      return 0;
+
+    //const GERecon::Control::ProcessingControlPointer processingControl(m_pfile->CreateOrchestraProcessingControl());
+    //auto lxDownloadDataPtr =  boost::dynamic_pointer_cast<GERecon::Legacy::LxDownloadData>(m_downloadDataPtr);
+
+    unsigned int lenFrame = (unsigned int) m_processingControl->Value<int>("AcquiredXRes");
+    unsigned int numViews = (unsigned int) m_processingControl->Value<int>("AcquiredYRes");
+    unsigned int numSlices = (unsigned int) m_processingControl->Value<int>("AcquiredZRes");
+    unsigned int numChannels = (unsigned int) m_processingControl->Value<int>("NumChannels");
     unsigned int numEchoes = (unsigned int) m_processingControl->Value<int>("NumEchoes");
     unsigned int numPhases = (unsigned int) m_processingControl->Value<int>("NumPhases");
 
     size_t numVolumes = 0;
-
-    // Get noise statistics to pre-whiten the data
-    /*
-    MDArray::FloatVector noiseValues(numChannels);
-    MDArray::FloatVector recWeight(numChannels);
-    for (unsigned int i_channel = 0; i_channel < numChannels; i_channel++)
-      noiseValues(i_channel) = prescanHeader.rec_std[i_channel];
-    recWeight = 1.0f / MDArray::pow(noiseValues, 2);
-    recWeight = MDArray::sqrt(recWeight / MDArray::sum(recWeight));
-    */
-    log_ << "Loading noise std values..." << std::endl;
-    std::vector<size_t> dims = {numChannels};
-    ISMRMRD::NDArray<float> noiseValues(dims);
-    for (unsigned int i_channel = 0; i_channel < numChannels; i_channel++)
-      noiseValues(i_channel) = prescanHeader.rec_std[i_channel];
-    d.appendNDArray("rec_std", noiseValues);
 
     for (unsigned int i_phase = 0; i_phase < numPhases; i_phase++) {
       for (unsigned int i_echo = 0; i_echo < numEchoes; i_echo++) {
@@ -787,7 +797,7 @@ namespace OxToIsmrmrd {
         // ISMRMRD::ImageHeader header = kspace.getHead();
 
         // Pfile is stored as (readout, views, echoes, slice, channel)
-        log_ << "Reading volume (Echo: " << i_echo << ", Phase: " << i_phase << ")..." << std::endl;
+        m_log << "Reading volume (Echo: " << i_echo << ", Phase: " << i_phase << ")..." << std::endl;
 #pragma omp parallel for collapse(2)
         for (unsigned int i_channel = 0; i_channel < numChannels; i_channel++) {
           for (unsigned int i_slice = 0; i_slice < numSlices; i_slice++) {
@@ -835,10 +845,10 @@ namespace OxToIsmrmrd {
     float bandwidth = rdbHeader.rdb_hdr_bw;
     float sample_time_us = 1.0 / (bandwidth * 1e-3);
 
-    //log_ << "Bandwidth" << bandwidth << std::endl;
+    //m_log << "Bandwidth" << bandwidth << std::endl;
     size_t i_acquisition = 0;
 
-    log_ << "Num controls: " << numControls << std::endl;
+    m_log << "Num controls: " << numControls << std::endl;
 
     for(size_t i_control = 0; i_control < numControls; i_control++) {
       const GERecon::Acquisition::FrameControlPointer controlPacketAndFrameData = archiveStorage->NextFrameControl();
@@ -871,7 +881,7 @@ namespace OxToIsmrmrd {
 
           const MDArray::ComplexFloatCube frameRawData = controlPacketAndFrameData->Data();
           if (frameRawData.extent(2) != 1)
-            std::cout << "Warning!! Number of frames not equal to 1 for control packet" << std::endl;
+            m_log << "Warning!! Number of frames not equal to 1 for control packet" << std::endl;
 
           for (int i_channel = 0; i_channel < numChannels; i_channel++)
             for (int i_readout = 0; i_readout < lenReadout; i_readout++)
@@ -879,7 +889,7 @@ namespace OxToIsmrmrd {
 
 
           //for (int i = 0; i < frameRawData.dimensions(); i++)
-          //  log_ << frameRawData.extent(i) << std::endl;
+          //  m_log << frameRawData.extent(i) << std::endl;
           d.appendAcquisition(ismrmrd_acq);
         } // if (viewValue...)
       } // if (controlPacketAndFrameData->Contrl().Opcode()...)
