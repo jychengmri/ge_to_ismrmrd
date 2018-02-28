@@ -4,11 +4,6 @@
 #include <stdexcept>
 #include <string>
 
-#include <libxml/xmlschemas.h>
-#include <libxslt/xslt.h>
-#include <libxslt/transform.h>
-#include <libxslt/xsltutils.h>
-
 // Orchestra
 #include <Orchestra/Acquisition/ControlPacket.h>
 #include <Orchestra/Acquisition/ControlTypes.h>
@@ -46,35 +41,8 @@
 
 // Local
 #include "GERawConverter.h"
-#include "XMLWriter.h"
-// #include "version.h"
 
-namespace OxToIsmrmrd {
-
-  const std::string g_schema = "\
-<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>            \
-<xs:schema xmlns=\"https://github.com/nih-fmrif/GEISMRMRD\"             \
-    xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"                       \
-    elementFormDefault=\"qualified\"                                    \
-    targetNamespace=\"https://github.com/nih-fmrif/GEISMRMRD\">         \
-    <xs:element name=\"conversionConfiguration\">                       \
-        <xs:complexType>                                                \
-            <xs:sequence>                                               \
-                <xs:element maxOccurs=\"unbounded\" minOccurs=\"1\"     \
-                    name=\"sequenceMapping\" type=\"sequenceMappingType\"/> \
-            </xs:sequence>                                              \
-        </xs:complexType>                                               \
-    </xs:element>                                                       \
-    <xs:complexType name=\"sequenceMappingType\">                           \
-        <xs:all>                                                        \
-            <xs:element name=\"psdname\" type=\"xs:string\"/>           \
-            <xs:element name=\"libraryPath\" type=\"xs:string\"/>       \
-            <xs:element name=\"className\" type=\"xs:string\"/>         \
-            <xs:element name=\"stylesheet\" type=\"xs:string\"/>        \
-            <xs:element name=\"reconConfigName\" type=\"xs:string\"/>   \
-        </xs:all>                                                       \
-    </xs:complexType>                                                   \
-</xs:schema>";
+namespace GeToIsmrmrd {
 
   std::string convert_date(const std::string& date_str) {
     if (date_str.length() == 8) {
@@ -100,10 +68,7 @@ namespace OxToIsmrmrd {
    * @throws std::runtime_error if P-File cannot be read
    */
   GERawConverter::GERawConverter(const std::string& pfilepath, bool logging)
-    : m_psdname(""),
-      m_recon_config(""),
-      m_stylesheet(""),
-      m_pfile(NULL),
+    : m_pfile(NULL),
       m_scanArchive(NULL),
       m_downloadDataPtr(NULL),
       m_processingControl(NULL),
@@ -113,6 +78,8 @@ namespace OxToIsmrmrd {
     if (!(fp = fopen(pfilepath.c_str(), "rb"))) {
       throw std::runtime_error("Failed to open " + pfilepath);
     }
+
+    m_log << "Reading data from file (" << pfilepath << ")..." << std::endl;
 
     if (GERecon::ScanArchive::IsArchiveFilePath(pfilepath)) {
       m_scanArchive = GERecon::ScanArchive::Create(pfilepath, GESystem::Archive::LoadMode);
@@ -139,168 +106,6 @@ namespace OxToIsmrmrd {
   } // constructor GERawConverter::GERawConverter()
 
 
-  void GERawConverter::useStylesheetFilename(const std::string& filename)
-  {
-    m_log << "Loading stylesheet: " << filename << std::endl;
-    std::ifstream stream(filename.c_str(), std::ios::binary);
-    useStylesheetStream(stream);
-  } // function GERawConverter::useStyelsheetFilename
-
-
-  void GERawConverter::useStylesheetStream(std::ifstream& stream)
-  {
-    stream.seekg(0, std::ios::beg);
-
-    std::string sheet((std::istreambuf_iterator<char>(stream)),
-                      std::istreambuf_iterator<char>());
-    useStylesheetString(sheet);
-  }
-
-
-  void GERawConverter::useStylesheetString(const std::string& sheet)
-  {
-    m_stylesheet = sheet;
-  }
-
-
-  void GERawConverter::useConfigFilename(const std::string& filename)
-  {
-    m_log << "Loading configuration: " << filename << std::endl;
-    std::ifstream stream(filename.c_str(), std::ios::binary);
-    useConfigStream(stream);
-  }
-
-
-  void GERawConverter::useConfigStream(std::ifstream& stream)
-  {
-    stream.seekg(0, std::ios::beg);
-
-    std::string config((std::istreambuf_iterator<char>(stream)),
-                       std::istreambuf_iterator<char>());
-    useConfigString(config);
-  }
-
-
-  bool GERawConverter::validateConfig(std::shared_ptr<xmlDoc> config_doc)
-  {
-    m_log << "Validating configuration" << std::endl;
-
-    std::shared_ptr<xmlDoc> schema_doc = std::shared_ptr<xmlDoc>(
-      xmlParseMemory(g_schema.c_str(), g_schema.size()), xmlFreeDoc);
-    if (!schema_doc) {
-      throw std::runtime_error("Failed to parse embedded config-file schema");
-    }
-
-    std::shared_ptr<xmlSchemaParserCtxt> parser_ctx = std::shared_ptr<xmlSchemaParserCtxt>(
-      xmlSchemaNewDocParserCtxt(schema_doc.get()), xmlSchemaFreeParserCtxt);
-    if (!parser_ctx) {
-      throw std::runtime_error("Failed to create schema parser");
-    }
-
-    std::shared_ptr<xmlSchema> schema = std::shared_ptr<xmlSchema>(
-      xmlSchemaParse(parser_ctx.get()), xmlSchemaFree);
-    if (!schema) {
-      throw std::runtime_error("Failed to create schema");
-    }
-
-    std::shared_ptr<xmlSchemaValidCtxt> valid_ctx = std::shared_ptr<xmlSchemaValidCtxt>(
-      xmlSchemaNewValidCtxt(schema.get()), xmlSchemaFreeValidCtxt);
-    if (!valid_ctx) {
-      throw std::runtime_error("Failed to create schema validity context");
-    }
-
-    // Set error/warning logging functions
-    // xmlSchemaSetValidErrors(valid_ctx, errors, warnings, NULL);
-
-    if (xmlSchemaValidateDoc(valid_ctx.get(), config_doc.get()) == 0) {
-      return true;
-    }
-    return false;
-  }
-
-
-  /**
-   * Validates configuration then loads plugin, stylesheet
-   *
-   * TODO: Leaks memory if exception thrown
-   */
-  void GERawConverter::useConfigString(const std::string& config)
-  {
-    std::string error_message;
-
-    std::shared_ptr<xmlDoc> config_doc = std::shared_ptr<xmlDoc>(
-      xmlParseMemory(config.c_str(), config.size()), xmlFreeDoc);
-    if (!config_doc) {
-      throw std::runtime_error("Failed to parse config");
-    }
-
-    if (!validateConfig(config_doc)) {
-      throw std::runtime_error("Invalid configuration");
-    }
-
-    m_log << "Searching for sequence mapping" << std::endl;
-
-    xmlNodePtr cur = xmlDocGetRootElement(config_doc.get());
-    if (NULL == cur) {
-      throw std::runtime_error("Can't get root element of configuration");
-    }
-
-    if (xmlStrcmp(cur->name, (const xmlChar *)"conversionConfiguration")) {
-      throw std::runtime_error("root element should be \"conversionConfiguration\"");
-    }
-
-    cur = cur->xmlChildrenNode;
-    while (cur != NULL) {
-      if (xmlStrcmp(cur->name, (const xmlChar*) "sequenceMapping") == 0) {
-        if (trySequenceMapping(config_doc, cur)) {
-          break;
-        }
-      }
-
-      cur = cur->next;
-    }
-  }
-
-
-  /**
-   * Attempts to load and use a sequence mapping from an XML config.
-   *
-   * Returns `true` on success, `false` otherwise.
-   */
-  bool GERawConverter::trySequenceMapping(std::shared_ptr<xmlDoc> doc, xmlNodePtr mapping)
-  {
-    xmlNodePtr parameter = mapping->xmlChildrenNode;
-    std::string psdname, libpath, classname, stylesheet, reconconfig;
-
-    while (parameter != NULL) {
-      if (xmlStrcmp(parameter->name, (const xmlChar*)"psdname") == 0) {
-        char *tmp = (char*)xmlNodeListGetString(doc.get(), parameter->xmlChildrenNode, 1);
-        psdname = std::string(tmp);
-        xmlFree(tmp);
-      } else if (xmlStrcmp(parameter->name, (const xmlChar*)"libraryPath") == 0) {
-        char *tmp = (char*)xmlNodeListGetString(doc.get(), parameter->xmlChildrenNode, 1);
-        libpath = std::string(tmp);
-        xmlFree(tmp);
-      } else if (xmlStrcmp(parameter->name, (const xmlChar*)"className") == 0) {
-        char *tmp = (char*)xmlNodeListGetString(doc.get(), parameter->xmlChildrenNode, 1);
-        classname = std::string(tmp);
-        xmlFree(tmp);
-      } else if (xmlStrcmp(parameter->name, (const xmlChar*)"stylesheet") == 0) {
-        char *tmp = (char*)xmlNodeListGetString(doc.get(), parameter->xmlChildrenNode, 1);
-        stylesheet = std::string(tmp);
-        xmlFree(tmp);
-      } else if (xmlStrcmp(parameter->name, (const xmlChar*)"reconConfigName") == 0) {
-        char *tmp = (char*)xmlNodeListGetString(doc.get(), parameter->xmlChildrenNode, 1);
-        reconconfig = std::string(tmp);
-        xmlFree(tmp);
-      }
-      parameter = parameter->next;
-    }
-
-    return true;
-  }
-
-
   /**
    * Converts the XSD ISMRMRD XML header object into a C++ string
    *
@@ -317,63 +122,10 @@ namespace OxToIsmrmrd {
     std::stringstream str;
     ISMRMRD::serialize(header, str);
     std::string headerXML (str.str());
-    // m_log << headerXML << std::endl;
-
-    xmlSubstituteEntitiesDefault(1);
-    xmlLoadExtDtdDefaultValue = 1;
-
-    std::shared_ptr<xmlDoc> pfile_doc = std::shared_ptr<xmlDoc>(
-      xmlParseMemory(headerXML.c_str(), headerXML.size()), xmlFreeDoc);
-    if (!pfile_doc) {
-      throw std::runtime_error("Failed to parse P-File XML");
-    }
-
-    if (m_stylesheet.size() > 0) {
-      m_log << "Applying stylesheet: " << m_stylesheet << std::endl;
-      // Normal pointer here because the xsltStylesheet takes ownership
-      xmlDocPtr stylesheet_doc = xmlParseMemory(m_stylesheet.c_str(), m_stylesheet.size());
-      if (NULL == stylesheet_doc) {
-        throw std::runtime_error("Failed to parse stylesheet");
-      }
-
-      std::shared_ptr<xsltStylesheet> sheet = std::shared_ptr<xsltStylesheet>(
-        xsltParseStylesheetDoc(stylesheet_doc), xsltFreeStylesheet);
-      if (!sheet) {
-        xmlFreeDoc(stylesheet_doc);
-        throw std::runtime_error("Failed to parse stylesheet");
-      }
-
-      const char *params[1] = { NULL };
-      std::shared_ptr<xmlDoc> result = std::shared_ptr<xmlDoc>(
-        xsltApplyStylesheet(sheet.get(), pfile_doc.get(), params), xmlFreeDoc);
-      if (!result) {
-        throw std::runtime_error("Failed to apply stylesheet");
-      }
-
-      xmlChar* output = NULL;
-      int len = 0;
-      if (xsltSaveResultToString(&output, &len, result.get(), sheet.get()) < 0) {
-        throw std::runtime_error("Failed to save converted doc to string");
-      }
-
-      std::string ismrmrd_header((char*)output, len);
-      xmlFree(output);
-      return ismrmrd_header;
-    }
 
     return headerXML;
   }
 
-
-  /**
-   * Gets the extra field "reconConfig" from the
-   * ge-ismrmrd XML configuration. This can be used to
-   * add this library to a Gadgetron client
-   */
-  std::string GERawConverter::getReconConfigName(void)
-  {
-    return std::string(m_recon_config);
-  }
 
   /**
    * Sets the PFile origin to the RDS client

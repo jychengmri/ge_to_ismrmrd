@@ -15,11 +15,7 @@
 #include "Orchestra/Common/DownloadData.h"
 #include "Orchestra/Control/ProcessingControl.h"
 
-// Libxml2 forward declarations
-struct _xmlDoc;
-struct _xmlNode;
-
-namespace OxToIsmrmrd {
+namespace GeToIsmrmrd {
 
   struct logstream {
     logstream(bool enable) : enabled(enable) {}
@@ -46,14 +42,6 @@ namespace OxToIsmrmrd {
     GERawConverter(const std::string& pfilepath, bool logging=false);
     //GERawConverter(void *hdr_loc, bool logging=false);
 
-    void useStylesheetFilename(const std::string& filename);
-    void useStylesheetStream(std::ifstream& stream);
-    void useStylesheetString(const std::string& sheet);
-
-    void useConfigFilename(const std::string& filename);
-    void useConfigStream(std::ifstream& stream);
-    void useConfigString(const std::string& config);
-
     std::string getIsmrmrdXMLHeader();
     size_t appendAcquisitions(ISMRMRD::Dataset& d);
 
@@ -61,22 +49,14 @@ namespace OxToIsmrmrd {
     void setRDS(void);
 
   private:
-    // Non-copyable
     GERawConverter(const GERawConverter& other);
     GERawConverter& operator=(const GERawConverter& other);
-
-    bool validateConfig(std::shared_ptr<struct _xmlDoc> config_doc);
-    bool trySequenceMapping(std::shared_ptr<struct _xmlDoc> doc, struct _xmlNode* mapping);
 
     ISMRMRD::IsmrmrdHeader lxDownloadDataToIsmrmrdHeader();
 
     size_t appendNoiseInformation(ISMRMRD::Dataset& d);
     size_t appendAcquisitionsFromPfile(ISMRMRD::Dataset& d);
     size_t appendAcquisitionsFromArchive(ISMRMRD::Dataset& d);
-
-    std::string m_psdname;
-    std::string m_recon_config;
-    std::string m_stylesheet;
 
     bool m_isScanArchive;
     GERecon::Legacy::PfilePointer m_pfile;
@@ -87,6 +67,6 @@ namespace OxToIsmrmrd {
     logstream m_log;
   };
 
-} // namespace OxToIsmrmrd
+} // namespace GeToIsmrmrd
 
 #endif  // GE_RAW_CONVERTER_H

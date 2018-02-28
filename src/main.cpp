@@ -25,9 +25,8 @@ int main (int argc, char *argv[])
   basic.add_options()
     ("help,h", "print help message")
     ("verbose,v", "enable verbose mode")
-    ("stylesheet,x", po::value<std::string>(&stylesheet)->default_value(""), "XSL stylesheet file")
     ("output,o", po::value<std::string>(&outputFileName)->default_value("output.h5"), "output HDF5 file")
-    ("rdsfile,r", "P-File from the RDS client")
+    //("rdsfile,r", "P-File from the RDS client")
     ("string,s", "only print the HDF5 XML header")
     ;
 
@@ -72,22 +71,12 @@ int main (int argc, char *argv[])
   }
 
   // Create a new Converter
-  std::shared_ptr<OxToIsmrmrd::GERawConverter> converter;
+  std::shared_ptr<GeToIsmrmrd::GERawConverter> converter;
   try {
-    converter = std::make_shared<OxToIsmrmrd::GERawConverter>(inputFileName, verbose);
+    converter = std::make_shared<GeToIsmrmrd::GERawConverter>(inputFileName, verbose);
   } catch (const std::exception& e) {
     std::cerr << "Failed to instantiate converter: " << e.what() << std::endl;
     return EXIT_FAILURE;
-  }
-
-  // Override stylesheet if specified
-  if (stylesheet.size() > 0) {
-    try {
-      converter->useStylesheetFilename(stylesheet);
-    } catch (const std::exception& e) {
-      std::cerr << "Failed to override stylesheet: " << e.what() << std::endl;
-      //return EXIT_FAILURE;
-    }
   }
 
   // Get the ISMRMRD Header String
@@ -117,12 +106,15 @@ int main (int argc, char *argv[])
   d.writeHeader(xml_header);
 
   // if the user has specified that this is an RDS file:
-  if (vm.count("rdsfile")) {
-    converter->setRDS();
-  }
+  // if (vm.count("rdsfile")) {
+  //   converter->setRDS();
+  // }
 
+  // Append data from file
   converter->appendAcquisitions(d);
-  //std::cout << "Swedished!" << std::endl;
+
+  if (verbose)
+    std::cout << "Done" << std::endl;
 
   return EXIT_SUCCESS;
 }
