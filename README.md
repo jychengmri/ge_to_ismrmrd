@@ -4,10 +4,6 @@ Orchestra conversion tools
 
 ## TODO
 
-1. Use ISMRMRD library to help with the format of the XML rather than custom XML + stylesheet.
-
-1. Support reading ScanArchive data
-
 1. Option to directly compile ISMRMRD files in rather than compile separate libraries and link.
 
 
