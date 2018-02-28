@@ -1,4 +1,4 @@
-# Getting started with the Orchestra to ISMRMRD converter library
+# GE to ISMRMRD Converter Tool
 
 Orchestra conversion tools
 
@@ -32,7 +32,7 @@ Orchestra conversion tools
     git clone https://github.com/ismrmrd/ge_to_ismrmrd.git
     ```
 
-1. Configure, compile and install the converter:
+1. Configure, compile and install the converter. Note that Orchestra 1.6-1 does not support GCC 5:
 
     ```bash
     cd ge_to_ismrmrd/
@@ -46,5 +46,5 @@ Orchestra conversion tools
 1. A typical command line to convert the supplied P-file using this library is:
 
    ```bash
-   ge_to_ismrmrd -v P12800_sample.7
+   ge_to_ismrmrd --verbose P12800_sample.7
    ```
