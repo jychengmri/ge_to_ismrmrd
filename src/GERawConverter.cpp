@@ -308,6 +308,7 @@ namespace GeToIsmrmrd {
     userParameters.userParameterLong.push_back({.name = "ChopY", .value = m_processingControl->Value<bool>("ChopY")});
     userParameters.userParameterLong.push_back({.name = "ChopZ", .value = m_processingControl->Value<bool>("ChopZ")});
     userParameters.userParameterLong.push_back({.name = "RHRecon", .value = rdbHeader.rdb_hdr_recon});
+    userParameters.userParameterLong.push_back({"CoilConfigUID", m_processingControl->Value<int>("CoilConfigUID")});
 
     userParameters.userParameterDouble.push_back({.name = "ReconUser0", .value = rdbHeader.rdb_hdr_user0});
     userParameters.userParameterDouble.push_back({.name = "ReconUser1", .value = rdbHeader.rdb_hdr_user1});

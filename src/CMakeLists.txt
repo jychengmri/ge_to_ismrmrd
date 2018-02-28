@@ -1,29 +1,23 @@
-set(CONVERTER_LIB "ge2i")
 set(CONVERTER_BIN "ge_to_ismrmrd")
+
+set(SOURCE_FILES
+  GERawConverter.cpp
+  main.cpp)
 
 include_directories(
   ${ISMRMRD_INCLUDE_DIR}
   ${ORCHESTRA_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_library(${CONVERTER_LIB} STATIC
-  GERawConverter.cpp)
+add_executable(${CONVERTER_BIN}
+  ${SOURCE_FILES})
 
-target_link_libraries(${CONVERTER_LIB}
+target_link_libraries(${CONVERTER_BIN}
+  ${ISMRMRD_LIBRARIES}
   ${ORCHESTRA_LIBRARIES}
   dl)
 
-# Will make static for portability
-#install(TARGETS ${CONVERTER_LIB} DESTINATION lib)
-#install(FILES SequenceConverter.h DESTINATION include/ge-tools)
-
-add_executable(${CONVERTER_BIN} main.cpp)
-target_link_libraries(${CONVERTER_BIN}
-    ${CONVERTER_LIB}
-    ${ISMRMRD_LIBRARIES})
 install(TARGETS ${CONVERTER_BIN} DESTINATION bin)
-
-#install(FILES config/default.xml config/default.xsl DESTINATION share/ge-tools/config)
 
 # API documentation
 find_package(Doxygen)
