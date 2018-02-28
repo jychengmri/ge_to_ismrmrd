@@ -47,6 +47,7 @@
 // Local
 #include "GERawConverter.h"
 #include "XMLWriter.h"
+// #include "version.h"
 
 namespace OxToIsmrmrd {
 
@@ -412,12 +413,11 @@ namespace OxToIsmrmrd {
     auto imageModule = dicomImage.ImageModule();
     auto imagePlaneModule = dicomImage.ImagePlaneModule();
 
-
-    m_log << "Populating ISMRMRD header..." << std::endl;
+    m_log << "Building ISMRMRD header..." << std::endl;
     ISMRMRD::IsmrmrdHeader ismrmrd_header;
     ismrmrd_header.version = ISMRMRD_XMLHDR_VERSION;
 
-    m_log << "   Loading subject information..." << std::endl;
+    m_log << "  Loading subject information..." << std::endl;
     ISMRMRD::SubjectInformation subjectInformation;
     subjectInformation.patientName = patientModule->Name().c_str();
     subjectInformation.patientWeight_kg = std::stof(patientStudyModule->Weight());
@@ -425,11 +425,8 @@ namespace OxToIsmrmrd {
     subjectInformation.patientBirthdate = convert_date(patientModule->Birthdate()).c_str();
     subjectInformation.patientGender = patientModule->Gender().c_str();
     ismrmrd_header.subjectInformation = subjectInformation;
-    // TODO: IRB info is stored here
-    // writer->formatElement("History", "%s", patientStudyModule->History().c_str());
 
-
-    m_log << "   Loading study information..." << std::endl;
+    m_log << "  Loading study information..." << std::endl;
     ISMRMRD::StudyInformation studyInformation;
     studyInformation.studyDate = convert_date(studyModule->Date()).c_str();
     studyInformation.studyTime = convert_time(studyModule->Time()).c_str();
@@ -441,7 +438,7 @@ namespace OxToIsmrmrd {
     ismrmrd_header.studyInformation = studyInformation;
     //writer->formatElement("ReadingPhysician", "%s", studyModule->ReadingPhysician().c_str());
 
-    m_log << "   Loading measurement information..." << std::endl;
+    m_log << "  Loading measurement information..." << std::endl;
     ISMRMRD::MeasurementInformation measurementInformation;
     // measurementInformation.measurementID = lxDownloadDataPtr->SeriesNumber();
     measurementInformation.seriesDate = convert_date(seriesModule->Date()).c_str();
@@ -458,8 +455,7 @@ namespace OxToIsmrmrd {
     // writer->formatElement("OperatorName", "%s", seriesModule->OperatorName().c_str());
     ismrmrd_header.measurementInformation = measurementInformation;
 
-
-    m_log << "   Loading acquisition system information..." << std::endl;
+    m_log << "  Loading acquisition system information..." << std::endl;
     ISMRMRD::AcquisitionSystemInformation acquisitionSystemInformation;
     GEDicom::EquipmentPointer equipment = series->Equipment();
     GEDicom::EquipmentModulePointer equipmentModule = equipment->GeneralModule();
@@ -484,7 +480,7 @@ namespace OxToIsmrmrd {
     m_log << "  Loading experimental conditions..." << std::endl;
     ismrmrd_header.experimentalConditions.H1resonanceFrequency_Hz = std::strtol(imageModule->ImagingFrequency().c_str(), NULL, 0);
 
-    m_log << "   Loading encoding information..." << std::endl;
+    m_log << "  Loading encoding information..." << std::endl;
     ISMRMRD::Encoding encoding;
     bool is3D = m_processingControl->Value<bool>("Is3DAcquisition");
     int acquiredXRes = m_processingControl->Value<int>("AcquiredXRes");
@@ -546,9 +542,15 @@ namespace OxToIsmrmrd {
     ismrmrd_header.sequenceParameters = sequenceParameters;
 
     ISMRMRD::UserParameters userParameters;
-    userParameters.userParameterString.push_back({.name = "PSDNAME", .value = imageHeader.psdname});
-    userParameters.userParameterString.push_back({.name = "PSDNameInternal", .value = imageHeader.psd_iname});
-    userParameters.userParameterString.push_back({.name = "History", .value = patientStudyModule->History().c_str()});
+    userParameters.userParameterString.push_back({"GitCommitHash", GIT_COMMIT_HASH});
+    userParameters.userParameterString.push_back({"GitBranch", GIT_BRANCH});
+    if (m_isScanArchive)
+      userParameters.userParameterString.push_back({"OrigFileFormat", "ScanArchive"});
+    else
+      userParameters.userParameterString.push_back({"OrigFileFormat", "PFile"});
+    userParameters.userParameterString.push_back({"PSDName", imageHeader.psdname});
+    userParameters.userParameterString.push_back({"PSDNameInternal", imageHeader.psd_iname});
+    userParameters.userParameterString.push_back({"History", patientStudyModule->History().c_str()});
 
     userParameters.userParameterLong.push_back({.name = "ChopX", .value = m_processingControl->Value<bool>("ChopX")});
     userParameters.userParameterLong.push_back({.name = "ChopY", .value = m_processingControl->Value<bool>("ChopY")});
