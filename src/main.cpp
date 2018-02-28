@@ -17,9 +17,9 @@ namespace po = boost::program_options;
 
 int main (int argc, char *argv[])
 {
-  GESystem::Main(argc, argv);
+
   std::string classname, stylesheet, inputFileName, outputFileName;
-  std::string usage("ox2ismrmrd [options] <input file>");
+  std::string usage("ge_to_ismrmrd [options] <input file>");
 
   po::options_description basic("Basic Options");
   basic.add_options()
@@ -32,7 +32,7 @@ int main (int argc, char *argv[])
 
   po::options_description input("Input Options");
   input.add_options()
-    ("input,i", po::value<std::string>(&inputFileName), "input file (InputFileName or ScanArchive)")
+    ("input,i", po::value<std::string>(&inputFileName), "input file (PFile or ScanArchive)")
     ;
 
   po::options_description all_options("Options");
@@ -70,6 +70,9 @@ int main (int argc, char *argv[])
     verbose = true;
   }
 
+  // Initialize GE functionality
+  GESystem::Main(argc, argv);
+
   // Create a new Converter
   std::shared_ptr<GeToIsmrmrd::GERawConverter> converter;
   try {
@@ -105,10 +108,6 @@ int main (int argc, char *argv[])
   // write the ISMRMRD header to the dataset
   d.writeHeader(xml_header);
 
-  // if the user has specified that this is an RDS file:
-  // if (vm.count("rdsfile")) {
-  //   converter->setRDS();
-  // }
 
   // Append data from file
   converter->appendAcquisitions(d);
