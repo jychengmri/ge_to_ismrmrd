@@ -46,5 +46,5 @@ Orchestra conversion tools
 1. A typical command line to convert the supplied P-file using this library is:
 
    ```bash
-   pfile2ismrmrd -v -x $GE_TOOLS_HOME/share/ge-tools/config/default.xsl P12800_sample.7
+   ge_to_ismrmrd -v P12800_sample.7
    ```
