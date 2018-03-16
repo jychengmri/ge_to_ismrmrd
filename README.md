@@ -1,6 +1,11 @@
-# Getting started with the Orchestra to ISMRMRD converter library
+# GE to ISMRMRD Converter Tool
 
 Orchestra conversion tools
+
+## TODO
+
+1. Option to directly compile ISMRMRD files in rather than compile separate libraries and link.
+
 
 ## To build and install the tools to convert GE raw files into ISMRMRD files:
 
@@ -27,19 +32,19 @@ Orchestra conversion tools
     git clone https://github.com/ismrmrd/ge_to_ismrmrd.git
     ```
 
-1. Configure, compile and install the converter:
+1. Configure, compile and install the converter. Note that Orchestra 1.6-1 does not support GCC 5:
 
     ```bash
     cd ge_to_ismrmrd/
     mkdir build
     cd build/
-    cmake -D OX_INSTALL_DIRECTORY=~/orchestra-sdk-1.6-1 ..
-    make install
+    CC=gcc-4.9 CXX=g++-4.9 cmake -G Ninja ..
+    ninja install
     cd ../
     ```
 
 1. A typical command line to convert the supplied P-file using this library is:
 
    ```bash
-   pfile2ismrmrd -v -l libp2i-generic.so -p GenericConverter -x $GE_TOOLS_HOME/share/ge-tools/config/default.xsl P12800_sample.7
+   ge_to_ismrmrd --verbose P12800_sample.7
    ```

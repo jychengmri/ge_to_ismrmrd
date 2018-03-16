@@ -6,78 +6,66 @@
 
 // ISMRMRD
 #include "ismrmrd/ismrmrd.h"
+#include "ismrmrd/dataset.h"
+#include "ismrmrd/xml.h"
 
 // Orchestra
 #include "Orchestra/Legacy/Pfile.h"
+#include "Orchestra/Common/ScanArchive.h"
+#include "Orchestra/Common/DownloadData.h"
+#include "Orchestra/Control/ProcessingControl.h"
 
-// Local
-#include "SequenceConverter.h"
+namespace GeToIsmrmrd {
 
-// Libxml2 forward declarations
-struct _xmlDoc;
-struct _xmlNode;
-
-namespace PfileToIsmrmrd {
-
-struct logstream {
+  struct logstream {
     logstream(bool enable) : enabled(enable) {}
     bool enabled;
-};
+  };
 
-template <typename T>
-logstream& operator<<(logstream& s, T const& v)
-{
+  template <typename T>
+    inline logstream& operator<<(logstream& s, T const& v)
+  {
     if (s.enabled) { std::clog << v; }
     return s;
-}
+  }
 
-logstream& operator<<(logstream& s, std::ostream& (*f)(std::ostream&))
-{
+  inline logstream& operator<<(logstream& s, std::ostream& (*f)(std::ostream&))
+  {
     if (s.enabled) { f(std::clog); }
     return s;
-}
+  }
 
 
-class GERawConverter
-{
-public:
-    GERawConverter(const std::string& pfilepath, bool logging=false);
-    //GERawConverter(void *hdr_loc, bool logging=false);
-
-    void useStylesheetFilename(const std::string& filename);
-    void useStylesheetStream(std::ifstream& stream);
-    void useStylesheetString(const std::string& sheet);
-
-    void useConfigFilename(const std::string& filename);
-    void useConfigStream(std::ifstream& stream);
-    void useConfigString(const std::string& config);
+  class GERawConverter
+  {
+  public:
+    GERawConverter(const std::string& filepath, bool logging=false);
 
     std::string getIsmrmrdXMLHeader();
-
-    std::vector<ISMRMRD::Acquisition> getAcquisitions(unsigned int view_num);
+    size_t appendAcquisitions(ISMRMRD::Dataset& d);
 
     std::string getReconConfigName(void);
-    unsigned int getNumViews(void);
     void setRDS(void);
 
-private:
-    // Non-copyable
+  private:
     GERawConverter(const GERawConverter& other);
     GERawConverter& operator=(const GERawConverter& other);
 
-    bool validateConfig(std::shared_ptr<struct _xmlDoc> config_doc);
-    bool trySequenceMapping(std::shared_ptr<struct _xmlDoc> doc, struct _xmlNode* mapping);
+    ISMRMRD::IsmrmrdHeader lxDownloadDataToIsmrmrdHeader();
 
-    std::string psdname_;
-    std::string recon_config_;
-    std::string stylesheet_;
+    size_t appendNoiseInformation(ISMRMRD::Dataset& d);
+    size_t appendAcquisitionsFromPfile(ISMRMRD::Dataset& d);
+    size_t appendAcquisitionsFromArchive(ISMRMRD::Dataset& d);
 
-    GERecon::Legacy::PfilePointer pfile_;
-    std::shared_ptr<SequenceConverter> converter_;
+    bool m_isScanArchive;
+    GERecon::Legacy::PfilePointer m_pfile;
+    GERecon::ScanArchivePointer m_scanArchive;
+    GERecon::DownloadDataPointer m_downloadDataPtr;
+    GERecon::Control::ProcessingControlPointer m_processingControl;
 
-    logstream log_;
-};
+    logstream m_log;
+  };
 
-} // namespace PfileToIsmrmrd
+} // namespace GeToIsmrmrd
 
 #endif  // GE_RAW_CONVERTER_H

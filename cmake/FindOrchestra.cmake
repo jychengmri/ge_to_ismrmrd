@@ -19,20 +19,22 @@ endif()
 # Include SDK build configuration
 set(TOPDIR "${OX_INSTALL_DIRECTORY}/include")
 include (${TOPDIR}/recon/SDK/product.cmake)
+set(LARGE_LIBRARY_TYPE STATIC)
 
-list(APPEND ORCHESTRA_LIBRARIES Cartesian2D
-				Cartesian3D
-	    			Gradwarp				
-				Legacy
-				Core
-				CalibrationCommon
-				Control
-				Common
-				Crucial
-				Dicom
-				Hdf5
-				Math
-				System
-				${OX_3P_LIBS}
-				${OX_OS_LIBS}
-				)
+list(APPEND ORCHESTRA_LIBRARIES Legacy
+  Core
+  CalibrationCommon
+  Foundation
+  Acquisition
+  Control
+  Common
+  Crucial
+  Dicom
+  Hdf5
+  Math
+  SystemServicesImplementation
+  SystemServicesInterface
+  System
+  ${OX_3P_LIBS}
+  ${OX_OS_LIBS}
+  )
