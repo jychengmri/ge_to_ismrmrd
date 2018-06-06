@@ -28,7 +28,7 @@ int main (int argc, char *argv[])
     ("help,h", "print help message")
     ("verbose", "enable verbose mode")
     ("output,o", po::value<std::string>(&outputFileName)->default_value("output.h5"), "output HDF5 file")
-    //("rdsfile,r", "P-File from the RDS client")
+    ("rds,r", "P-File from the RDS client")
     ("string,s", "only print the HDF5 XML header")
     ("version", "print version information")
     ;
@@ -79,10 +79,16 @@ int main (int argc, char *argv[])
     return EXIT_FAILURE;
   }
 
+  bool isRDS = false;
+  if (vm.count("rds")) {
+    isRDS = true;
+  }
+
   bool verbose = false;
   if (vm.count("verbose")) {
     verbose = true;
   }
+
 
   // Initialize GE functionality
   GESystem::Main(argc, argv);
@@ -95,6 +101,8 @@ int main (int argc, char *argv[])
     std::cerr << "Failed to instantiate converter: " << e.what() << std::endl;
     return EXIT_FAILURE;
   }
+
+  converter->setRDS(isRDS);
 
   // Get the ISMRMRD Header String
   std::string xml_header;

@@ -45,7 +45,7 @@ namespace GeToIsmrmrd {
     size_t appendAcquisitions(ISMRMRD::Dataset& d);
 
     std::string getReconConfigName(void);
-    void setRDS(void);
+    void setRDS(bool);
 
   private:
     GERawConverter(const GERawConverter& other);
@@ -54,10 +54,12 @@ namespace GeToIsmrmrd {
     ISMRMRD::IsmrmrdHeader lxDownloadDataToIsmrmrdHeader();
 
     size_t appendNoiseInformation(ISMRMRD::Dataset& d);
+    size_t appendImagesFromPfile(ISMRMRD::Dataset& d);
     size_t appendAcquisitionsFromPfile(ISMRMRD::Dataset& d);
     size_t appendAcquisitionsFromArchive(ISMRMRD::Dataset& d);
 
     bool m_isScanArchive;
+    bool m_isRDS;
     GERecon::Legacy::PfilePointer m_pfile;
     GERecon::ScanArchivePointer m_scanArchive;
     GERecon::DownloadDataPointer m_downloadDataPtr;

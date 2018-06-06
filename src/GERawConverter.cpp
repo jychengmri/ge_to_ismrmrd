@@ -68,7 +68,8 @@ namespace GeToIsmrmrd {
    * @throws std::runtime_error if file cannot be read
    */
   GERawConverter::GERawConverter(const std::string& filepath, bool logging)
-    : m_pfile(NULL),
+    : m_isRDS(false),
+      m_pfile(NULL),
       m_scanArchive(NULL),
       m_downloadDataPtr(NULL),
       m_processingControl(NULL),
@@ -128,12 +129,11 @@ namespace GeToIsmrmrd {
 
 
   /**
-   * Sets the PFile origin to the RDS client
-   *
-   * TODO: implement!
+   * Specify whether the PFile is an RDS file or not
    */
-  void GERawConverter::setRDS(void)
+  void GERawConverter::setRDS(bool isRDS)
   {
+    m_isRDS = isRDS;
   }
 
 
@@ -499,8 +499,12 @@ namespace GeToIsmrmrd {
     size_t numData = appendNoiseInformation(d);
     if (m_isScanArchive)
       return numData + appendAcquisitionsFromArchive(d);
-    else
-      return numData + appendAcquisitionsFromPfile(d);
+    else {
+      if (m_isRDS)
+        return numData + appendAcquisitionsFromPfile(d);
+      else
+        return numData + appendImagesFromPfile(d);
+    }
   } // function GERawConverter::appendAcquisitions()
 
 
@@ -527,7 +531,7 @@ namespace GeToIsmrmrd {
   }
 
 
-  size_t GERawConverter::appendAcquisitionsFromPfile(ISMRMRD::Dataset& d)
+  size_t GERawConverter::appendImagesFromPfile(ISMRMRD::Dataset& d)
   {
     if (m_isScanArchive)
       return 0;
@@ -570,7 +574,7 @@ namespace GeToIsmrmrd {
 
             for (unsigned int i_view = 0; i_view < numViews; i_view++) {
               for (unsigned int i = 0 ; i < lenFrame ; i++)
-                kspace(i, i_view, i_slice, i_channel) = kspaceFromFile((int)i, (int)i_view); // * recWeight(i_channel);
+                kspace(i, i_view, i_slice, i_channel) = kspaceFromFile((int)i, (int)i_view);
             } // for (i_view)
           } // for (i_slice)
         } // for (i_channel)
@@ -580,8 +584,48 @@ namespace GeToIsmrmrd {
     } // for (i_phase)
 
     return numVolumes;
-  } // function GERawConverter::appendAcquisitionsFromPfile()
+  } // function GERawConverter::appendImagesFromPfile()
 
+
+  size_t GERawConverter::appendAcquisitionsFromPfile(ISMRMRD::Dataset& d)
+  {
+    if (m_isScanArchive)
+      return 0;
+
+    const GERecon::Control::ProcessingControlPointer processingControl(m_pfile->CreateOrchestraProcessingControl());
+    auto lxDownloadDataPtr =  boost::dynamic_pointer_cast<GERecon::Legacy::LxDownloadData>(m_downloadDataPtr);
+    const GERecon::Legacy::LxDownloadData& lxDownloadData = *lxDownloadDataPtr.get();
+    auto rdbHeader = lxDownloadData.RawHeader();
+
+    float bandwidth = rdbHeader.rdb_hdr_bw;
+    float sample_time_us = 1.0 / (bandwidth * 1e-3);
+
+    unsigned int lenFrame = (unsigned int) m_processingControl->Value<int>("AcquiredXRes");
+    unsigned int numChannels = (unsigned int) m_processingControl->Value<int>("NumChannels");
+
+    size_t numViews = m_pfile->ViewCount();
+    m_log << "Number of views: " << numViews << std::endl;
+
+    for (size_t i_view = 0; i_view < numViews; i_view++) {
+      ISMRMRD::Acquisition ismrmrd_acq;
+      ismrmrd_acq.resize(lenFrame, numChannels);
+      ismrmrd_acq.scan_counter() = i_view;
+      ismrmrd_acq.discard_pre() = 0;
+      ismrmrd_acq.discard_post() = 0;
+      ismrmrd_acq.sample_time_us() = sample_time_us;
+
+#pragma omp parallel for
+      for (size_t i_channel = 0; i_channel < numChannels; i_channel++) {
+        MDArray::ComplexFloatVector kspaceFromFile = m_pfile->ViewData<float>(i_view, i_channel);
+        for (unsigned int i_readout = 0; i_readout < lenFrame; i_readout++) {
+          ismrmrd_acq.data(i_readout, i_channel) = kspaceFromFile(i_readout);
+        }
+      }
+      d.appendAcquisition(ismrmrd_acq);
+    }
+
+    return numViews;
+  } // function GERawConverter::appendAcquisitionsFromPfile()
 
   size_t GERawConverter::appendAcquisitionsFromArchive(ISMRMRD::Dataset& d) {
     if (!m_isScanArchive)
