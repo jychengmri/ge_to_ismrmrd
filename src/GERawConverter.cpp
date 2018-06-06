@@ -308,6 +308,7 @@ namespace GeToIsmrmrd {
     userParameters.userParameterLong.push_back({.name = "ChopY", .value = m_processingControl->Value<bool>("ChopY")});
     userParameters.userParameterLong.push_back({.name = "ChopZ", .value = m_processingControl->Value<bool>("ChopZ")});
     userParameters.userParameterLong.push_back({.name = "RHRecon", .value = rdbHeader.rdb_hdr_recon});
+    userParameters.userParameterLong.push_back({.name = "KAcqUID", .value = rdbHeader.rdb_hdr_kacq_uid});
     userParameters.userParameterLong.push_back({"CoilConfigUID", m_processingControl->Value<int>("CoilConfigUID")});
 
     userParameters.userParameterDouble.push_back({.name = "ReconUser0", .value = rdbHeader.rdb_hdr_user0});
@@ -608,7 +609,6 @@ namespace GeToIsmrmrd {
     for(size_t i_control = 0; i_control < numControls; i_control++) {
       const GERecon::Acquisition::FrameControlPointer controlPacketAndFrameData = archiveStorage->NextFrameControl();
       if(controlPacketAndFrameData->Control().Opcode() == GERecon::Acquisition::ProgrammableOpcode) {
-        //ISMRMRD::Acquisition ismrmrd_acq;
 
         const GERecon::Acquisition::ProgrammableControlPacket framePacket =
           controlPacketAndFrameData->Control().Packet().As<GERecon::Acquisition::ProgrammableControlPacket>();
@@ -641,7 +641,6 @@ namespace GeToIsmrmrd {
           for (int i_channel = 0; i_channel < numChannels; i_channel++)
             for (int i_readout = 0; i_readout < lenReadout; i_readout++)
               ismrmrd_acq.data(i_readout, i_channel) = frameRawData(i_readout, i_channel, 0);
-
 
           //for (int i = 0; i < frameRawData.dimensions(); i++)
           //  m_log << frameRawData.extent(i) << std::endl;
