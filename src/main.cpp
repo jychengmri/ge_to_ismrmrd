@@ -30,6 +30,7 @@ int main (int argc, char *argv[])
     ("output,o", po::value<std::string>(&outputFileName)->default_value("output.h5"), "output HDF5 file")
     ("rds,r", "P-File from the RDS client")
     ("string,s", "only print the HDF5 XML header")
+    ("headeronly", "save only the HDF5 XML header")
     ("version", "print version information")
     ;
 
@@ -89,6 +90,11 @@ int main (int argc, char *argv[])
     verbose = true;
   }
 
+  bool headerOnly = false;
+  if (vm.count("headeronly")) {
+    headerOnly = true;
+  }
+
 
   // Initialize GE functionality
   GESystem::Main(argc, argv);
@@ -130,9 +136,10 @@ int main (int argc, char *argv[])
   // write the ISMRMRD header to the dataset
   d.writeHeader(xml_header);
 
-
-  // Append data from file
-  converter->appendAcquisitions(d);
+  if (!headerOnly) {
+    // Append data from file
+    converter->appendAcquisitions(d);
+  }
 
   if (verbose)
     std::cout << "Done" << std::endl;
