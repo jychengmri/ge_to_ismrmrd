@@ -42,6 +42,7 @@ namespace GeToIsmrmrd {
     GERawConverter(const std::string& filepath, bool logging=false);
 
     std::string getIsmrmrdXMLHeader();
+    size_t appendNoiseInformation(ISMRMRD::Dataset& d);
     size_t appendAcquisitions(ISMRMRD::Dataset& d);
 
     std::string getReconConfigName(void);
@@ -52,8 +53,6 @@ namespace GeToIsmrmrd {
     GERawConverter& operator=(const GERawConverter& other);
 
     ISMRMRD::IsmrmrdHeader lxDownloadDataToIsmrmrdHeader();
-
-    size_t appendNoiseInformation(ISMRMRD::Dataset& d);
     size_t appendImagesFromPfile(ISMRMRD::Dataset& d);
     size_t appendAcquisitionsFromPfile(ISMRMRD::Dataset& d);
     size_t appendAcquisitionsFromArchive(ISMRMRD::Dataset& d);

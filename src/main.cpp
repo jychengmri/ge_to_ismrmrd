@@ -135,7 +135,8 @@ int main (int argc, char *argv[])
 
   // write the ISMRMRD header to the dataset
   d.writeHeader(xml_header);
-
+  // always append noise information, too
+  converter->appendNoiseInformation(d);
   if (!headerOnly) {
     // Append data from file
     converter->appendAcquisitions(d);

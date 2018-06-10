@@ -496,7 +496,7 @@ namespace GeToIsmrmrd {
 
   size_t GERawConverter::appendAcquisitions(ISMRMRD::Dataset& d)
   {
-    size_t numData = appendNoiseInformation(d);
+    size_t numData = 0 ; //appendNoiseInformation(d);
     if (m_isScanArchive)
       return numData + appendAcquisitionsFromArchive(d);
     else {
