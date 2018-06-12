@@ -20,7 +20,7 @@ int main (int argc, char *argv[])
 {
   std::string bin_name = "ge_to_ismrmrd";
 
-  std::string inputFileName, outputFileName;
+  std::string inputFileName, outputFileName, anonString;
   std::string usage(bin_name + " [options] <input file>");
 
   po::options_description basic("Basic Options");
@@ -31,6 +31,7 @@ int main (int argc, char *argv[])
     ("rds,r", "P-File from the RDS client")
     ("string,s", "only print the HDF5 XML header")
     ("headeronly", "save only the HDF5 XML header")
+    ("anon,a", po::value<std::string>(&anonString)->default_value(""), "anon string")
     ("version", "print version information")
     ;
 
@@ -95,7 +96,6 @@ int main (int argc, char *argv[])
     headerOnly = true;
   }
 
-
   // Initialize GE functionality
   GESystem::Main(argc, argv);
 
@@ -109,6 +109,7 @@ int main (int argc, char *argv[])
   }
 
   converter->setRDS(isRDS);
+  converter->setAnonString(anonString);
 
   // Get the ISMRMRD Header String
   std::string xml_header;

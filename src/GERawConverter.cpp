@@ -69,6 +69,7 @@ namespace GeToIsmrmrd {
    */
   GERawConverter::GERawConverter(const std::string& filepath, bool logging)
     : m_isRDS(false),
+      m_anonString(""),
       m_pfile(NULL),
       m_scanArchive(NULL),
       m_downloadDataPtr(NULL),
@@ -137,6 +138,14 @@ namespace GeToIsmrmrd {
   }
 
 
+  /**
+   * Specify string to anonymize data
+   */
+  void GERawConverter::setAnonString(const std::string anonString) {
+    m_anonString.assign(anonString);
+  }
+
+
   ISMRMRD::IsmrmrdHeader GERawConverter::lxDownloadDataToIsmrmrdHeader()
   {
     const GERecon::Legacy::LxDownloadDataPointer lxDownloadDataPtr =
@@ -147,6 +156,8 @@ namespace GeToIsmrmrd {
     auto imageHeader = lxDownloadData.ImageHeaderData();
     const boost::shared_ptr<GERecon::Legacy::LxControlSource> controlSource =
       boost::make_shared<GERecon::Legacy::LxControlSource>(lxDownloadDataPtr);
+
+    bool anonData = !m_anonString.empty();
 
     GERecon::Legacy::DicomSeries legacySeries(lxDownloadDataPtr);
     GEDicom::SeriesPointer series = legacySeries.Series();
@@ -169,42 +180,66 @@ namespace GeToIsmrmrd {
     ISMRMRD::IsmrmrdHeader ismrmrd_header;
     ismrmrd_header.version = ISMRMRD_XMLHDR_VERSION;
 
+    if (anonData) {
+      m_log << "  Anonymizing dataset (" << m_anonString << ")..." << std::endl;
+    }
+
     m_log << "  Loading subject information..." << std::endl;
     ISMRMRD::SubjectInformation subjectInformation;
-    subjectInformation.patientName = patientModule->Name().c_str();
-    subjectInformation.patientWeight_kg = std::stof(patientStudyModule->Weight());
-    subjectInformation.patientID = patientModule->ID().c_str();
-    subjectInformation.patientBirthdate = convert_date(patientModule->Birthdate()).c_str();
+    if (anonData) {
+      subjectInformation.patientName = m_anonString;
+      subjectInformation.patientID = m_anonString;
+    }
+    else {
+      subjectInformation.patientName = patientModule->Name().c_str();
+      subjectInformation.patientWeight_kg = std::stof(patientStudyModule->Weight());
+      subjectInformation.patientID = patientModule->ID().c_str();
+      subjectInformation.patientBirthdate = convert_date(patientModule->Birthdate()).c_str();
+    }
     subjectInformation.patientGender = patientModule->Gender().c_str();
     ismrmrd_header.subjectInformation = subjectInformation;
 
     m_log << "  Loading study information..." << std::endl;
     ISMRMRD::StudyInformation studyInformation;
-    studyInformation.studyDate = convert_date(studyModule->Date()).c_str();
-    studyInformation.studyTime = convert_time(studyModule->Time()).c_str();
-    studyInformation.studyID = std::to_string(studyModule->StudyNumber());
-    studyInformation.accessionNumber = std::strtol(studyModule->AccessionNumber().c_str(), NULL, 0);
-    studyInformation.referringPhysicianName = studyModule->ReferringPhysician().c_str();
-    studyInformation.studyDescription = studyModule->StudyDescription().c_str();
-    studyInformation.studyInstanceUID = studyModule->UID().c_str();
+    if (anonData) {
+      studyInformation.studyID = m_anonString;
+      studyInformation.studyDescription = m_anonString;
+      studyInformation.studyInstanceUID = m_anonString;
+    }
+    else {
+      studyInformation.studyDate = convert_date(studyModule->Date()).c_str();
+      studyInformation.studyTime = convert_time(studyModule->Time()).c_str();
+      studyInformation.studyID = std::to_string(studyModule->StudyNumber());
+      studyInformation.accessionNumber = std::strtol(studyModule->AccessionNumber().c_str(), NULL, 0);
+      studyInformation.referringPhysicianName = studyModule->ReferringPhysician().c_str();
+      studyInformation.studyDescription = studyModule->StudyDescription().c_str();
+      studyInformation.studyInstanceUID = studyModule->UID().c_str();
+    }
     ismrmrd_header.studyInformation = studyInformation;
     //writer->formatElement("ReadingPhysician", "%s", studyModule->ReadingPhysician().c_str());
 
     m_log << "  Loading measurement information..." << std::endl;
     ISMRMRD::MeasurementInformation measurementInformation;
-    // measurementInformation.measurementID = lxDownloadDataPtr->SeriesNumber();
-    measurementInformation.seriesDate = convert_date(seriesModule->Date()).c_str();
-    measurementInformation.seriesTime = convert_date(seriesModule->Time()).c_str();
-    measurementInformation.patientPosition = seriesModule->PpsDescription().c_str(); //?
+    if (anonData) {
+      measurementInformation.protocolName = m_anonString;
+      measurementInformation.seriesDescription = m_anonString;
+      measurementInformation.seriesInstanceUIDRoot = m_anonString;
+
+    } else {
+      // measurementInformation.measurementID = lxDownloadDataPtr->SeriesNumber();
+      measurementInformation.seriesDate = convert_date(seriesModule->Date()).c_str();
+      measurementInformation.seriesTime = convert_date(seriesModule->Time()).c_str();
+      measurementInformation.protocolName = seriesModule->ProtocolName().c_str();
+      measurementInformation.seriesDescription = seriesModule->SeriesDescription().c_str();
+      //measurementInformation.measurementDependency = ?
+      measurementInformation.seriesInstanceUIDRoot = seriesModule->UID().c_str();
+      // measurementInformation.frameOfReferenceUID = ?
+      // measurementInformation.referencedImageSequence = ?
+      // writer->formatElement("Laterality", "%s", seriesModule->Laterality().c_str());
+      // writer->formatElement("OperatorName", "%s", seriesModule->OperatorName().c_str());
+    }
     measurementInformation.initialSeriesNumber = lxDownloadDataPtr->SeriesNumber();
-    measurementInformation.protocolName = seriesModule->ProtocolName().c_str();
-    measurementInformation.seriesDescription = seriesModule->SeriesDescription().c_str();
-    //measurementInformation.measurementDependency = ?
-    measurementInformation.seriesInstanceUIDRoot = seriesModule->UID().c_str();
-    // measurementInformation.frameOfReferenceUID = ?
-    // measurementInformation.referencedImageSequence = ?
-    // writer->formatElement("Laterality", "%s", seriesModule->Laterality().c_str());
-    // writer->formatElement("OperatorName", "%s", seriesModule->OperatorName().c_str());
+    measurementInformation.patientPosition = seriesModule->PpsDescription().c_str();
     ismrmrd_header.measurementInformation = measurementInformation;
 
     m_log << "  Loading acquisition system information..." << std::endl;

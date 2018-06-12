@@ -47,6 +47,7 @@ namespace GeToIsmrmrd {
 
     std::string getReconConfigName(void);
     void setRDS(bool);
+    void setAnonString(const std::string);
 
   private:
     GERawConverter(const GERawConverter& other);
@@ -59,6 +60,7 @@ namespace GeToIsmrmrd {
 
     bool m_isScanArchive;
     bool m_isRDS;
+    std::string m_anonString;
     GERecon::Legacy::PfilePointer m_pfile;
     GERecon::ScanArchivePointer m_scanArchive;
     GERecon::DownloadDataPointer m_downloadDataPtr;
