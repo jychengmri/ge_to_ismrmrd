@@ -47,7 +47,7 @@ namespace GeToIsmrmrd {
   std::string convert_date(const std::string& date_str) {
     if (date_str.length() == 8) {
       return date_str.substr(0, 4) + "-"
-        + date_str.substr(5, 2) + "-" + date_str.substr(6, 2);
+        + date_str.substr(4, 2) + "-" + date_str.substr(6, 2);
     } else
       return date_str;
   }
@@ -196,7 +196,8 @@ namespace GeToIsmrmrd {
       subjectInformation.patientID = patientModule->ID().c_str();
       subjectInformation.patientBirthdate = convert_date(patientModule->Birthdate()).c_str();
     }
-    subjectInformation.patientGender = patientModule->Gender().c_str();
+    if (!patientModule->Gender().empty())
+      subjectInformation.patientGender = patientModule->Gender().c_str();
     ismrmrd_header.subjectInformation = subjectInformation;
 
     m_log << "  Loading study information..." << std::endl;
@@ -228,7 +229,7 @@ namespace GeToIsmrmrd {
     } else {
       // measurementInformation.measurementID = lxDownloadDataPtr->SeriesNumber();
       measurementInformation.seriesDate = convert_date(seriesModule->Date()).c_str();
-      measurementInformation.seriesTime = convert_date(seriesModule->Time()).c_str();
+      measurementInformation.seriesTime = convert_time(seriesModule->Time()).c_str();
       measurementInformation.protocolName = seriesModule->ProtocolName().c_str();
       measurementInformation.seriesDescription = seriesModule->SeriesDescription().c_str();
       //measurementInformation.measurementDependency = ?
@@ -239,7 +240,26 @@ namespace GeToIsmrmrd {
       // writer->formatElement("OperatorName", "%s", seriesModule->OperatorName().c_str());
     }
     measurementInformation.initialSeriesNumber = lxDownloadDataPtr->SeriesNumber();
-    measurementInformation.patientPosition = seriesModule->PpsDescription().c_str();
+    GERecon::PatientPosition patientPosition = static_cast<GERecon::PatientPosition>(
+      m_processingControl->Value<int>("PatientPosition"));
+    switch(patientPosition)
+    {
+    case GERecon::PatientPosition::Supine:
+      measurementInformation.patientPosition = "HFS";
+      break;
+    case GERecon::PatientPosition::Prone:
+      measurementInformation.patientPosition = "HFP";
+      break;
+    case GERecon::PatientPosition::LeftDescending:
+      measurementInformation.patientPosition = "HFDL";
+      break;
+    case GERecon::PatientPosition::RightDescending:
+      measurementInformation.patientPosition = "HFDR";
+      break;
+    default:
+      measurementInformation.patientPosition = "HFS";
+      break;
+    }
     ismrmrd_header.measurementInformation = measurementInformation;
 
     m_log << "  Loading acquisition system information..." << std::endl;
@@ -302,9 +322,9 @@ namespace GeToIsmrmrd {
     encoding.encodingLimits.kspace_encoding_step_1 = ISMRMRD::Limit(0, acquiredYRes, acquiredYRes / 2);
     encoding.encodingLimits.kspace_encoding_step_2 = ISMRMRD::Limit(0, acquiredZRes, acquiredZRes / 2);
     unsigned short numEchoes = (unsigned short) m_processingControl->Value<int>("NumEchoes");
-    encoding.encodingLimits.contrast = ISMRMRD::Limit(0, numEchoes, numEchoes / 2);
+    encoding.encodingLimits.contrast = ISMRMRD::Limit(0, numEchoes - 1, numEchoes / 2);
     unsigned short numPhases = (unsigned short) m_processingControl->Value<int>("NumPhases");
-    encoding.encodingLimits.phase = ISMRMRD::Limit(0, numPhases, numPhases / 2);
+    encoding.encodingLimits.phase = ISMRMRD::Limit(0, numPhases - 1, numPhases / 2);
     // encoding.parallelImaging
     ismrmrd_header.encoding.push_back(encoding);
 
