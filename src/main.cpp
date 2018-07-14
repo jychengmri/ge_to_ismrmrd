@@ -72,7 +72,7 @@ int main (int argc, char *argv[])
               << "." << ISMRMRD_VERSION_PATCH << std::endl;
     std::cout << "  ISMRMRD XML: " << ISMRMRD_XMLHDR_VERSION << std::endl;
     // Is there somewhere to find this?
-    std::cout << "    Orchestra: 1.6-1" << std::endl;
+    std::cout << "    Orchestra: 1.7-1" << std::endl;
     return EXIT_SUCCESS;
   }
 
