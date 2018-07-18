@@ -319,8 +319,15 @@ namespace GeToIsmrmrd {
     else
       encoding.reconSpace.fieldOfView_mm.z = pixelSizeZ;
     encoding.trajectory = "cartesian"; //ISMRMRD::TrajectoryType::CARTESIAN;
-    encoding.encodingLimits.kspace_encoding_step_1 = ISMRMRD::Limit(0, acquiredYRes, acquiredYRes / 2);
-    encoding.encodingLimits.kspace_encoding_step_2 = ISMRMRD::Limit(0, acquiredZRes, acquiredZRes / 2);
+    encoding.encodingLimits.kspace_encoding_step_1 = ISMRMRD::Limit(0, acquiredYRes - 1, acquiredYRes / 2);
+    if (is3D) {
+      encoding.encodingLimits.kspace_encoding_step_2 = ISMRMRD::Limit(0, acquiredZRes - 1, acquiredZRes / 2);
+      encoding.encodingLimits.slice = ISMRMRD::Limit(0, 0, 0);
+    }
+    else {
+      encoding.encodingLimits.kspace_encoding_step_2 = ISMRMRD::Limit(0, 0, 0);
+      encoding.encodingLimits.slice = ISMRMRD::Limit(0, acquiredZRes - 1, acquiredZRes / 2);
+    }
     unsigned short numEchoes = (unsigned short) m_processingControl->Value<int>("NumEchoes");
     encoding.encodingLimits.contrast = ISMRMRD::Limit(0, numEchoes - 1, numEchoes / 2);
     unsigned short numPhases = (unsigned short) m_processingControl->Value<int>("NumPhases");
