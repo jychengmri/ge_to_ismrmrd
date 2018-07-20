@@ -225,7 +225,6 @@ namespace GeToIsmrmrd {
       measurementInformation.protocolName = m_anonString;
       measurementInformation.seriesDescription = m_anonString;
       measurementInformation.seriesInstanceUIDRoot = m_anonString;
-
     } else {
       // measurementInformation.measurementID = lxDownloadDataPtr->SeriesNumber();
       measurementInformation.seriesDate = convert_date(seriesModule->Date()).c_str();
@@ -332,6 +331,8 @@ namespace GeToIsmrmrd {
     encoding.encodingLimits.contrast = ISMRMRD::Limit(0, numEchoes - 1, numEchoes / 2);
     unsigned short numPhases = (unsigned short) m_processingControl->Value<int>("NumPhases");
     encoding.encodingLimits.phase = ISMRMRD::Limit(0, numPhases - 1, numPhases / 2);
+    unsigned short echoTrainLength = (unsigned short) imageHeader.echo_trn_len;
+    encoding.encodingLimits.segment = ISMRMRD::Limit(0, echoTrainLength - 1, echoTrainLength / 2);
     // encoding.parallelImaging
     ismrmrd_header.encoding.push_back(encoding);
 
@@ -725,15 +726,17 @@ namespace GeToIsmrmrd {
           ismrmrd_acq.idx().contrast = framePacket.echoNum;
           ismrmrd_acq.idx().kspace_encode_step_1 = viewValue - 1;
           if (is3D) {
-            ismrmrd_acq.idx().kspace_encode_step_2 = GERecon::Acquisition::GetPacketValue(framePacket.sliceNumH,
-                                                                                          framePacket.sliceNumL);
+            ismrmrd_acq.idx().kspace_encode_step_2 = GERecon::Acquisition::GetPacketValue(
+              framePacket.sliceNumH, framePacket.sliceNumL);
             ismrmrd_acq.idx().slice = 0;
           }
           else {
             ismrmrd_acq.idx().kspace_encode_step_2 = 0;
-            ismrmrd_acq.idx().slice = GERecon::Acquisition::GetPacketValue(framePacket.sliceNumH,
-                                                                           framePacket.sliceNumL);
+            ismrmrd_acq.idx().slice = GERecon::Acquisition::GetPacketValue(
+              framePacket.sliceNumH, framePacket.sliceNumL);
           }
+          ismrmrd_acq.idx().segment = GERecon::Acquisition::GetPacketValue(
+            framePacket.echoTrainIndexH, framePacket.echoTrainIndexL);
           ismrmrd_acq.scan_counter() = i_acquisition++;
           ismrmrd_acq.discard_pre() = 0;
           ismrmrd_acq.discard_post() = 0;
