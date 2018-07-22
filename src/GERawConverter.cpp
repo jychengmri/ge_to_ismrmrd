@@ -194,7 +194,8 @@ namespace GeToIsmrmrd {
       subjectInformation.patientName = patientModule->Name().c_str();
       subjectInformation.patientWeight_kg = std::stof(patientStudyModule->Weight());
       subjectInformation.patientID = patientModule->ID().c_str();
-      subjectInformation.patientBirthdate = convert_date(patientModule->Birthdate()).c_str();
+      if (!patientModule->Birthdate().empty())
+        subjectInformation.patientBirthdate = convert_date(patientModule->Birthdate()).c_str();
     }
     if (!patientModule->Gender().empty())
       subjectInformation.patientGender = patientModule->Gender().c_str();
@@ -208,7 +209,8 @@ namespace GeToIsmrmrd {
       studyInformation.studyInstanceUID = m_anonString;
     }
     else {
-      studyInformation.studyDate = convert_date(studyModule->Date()).c_str();
+      if (!studyModule->Date().empty())
+        studyInformation.studyDate = convert_date(studyModule->Date()).c_str();
       studyInformation.studyTime = convert_time(studyModule->Time()).c_str();
       studyInformation.studyID = std::to_string(studyModule->StudyNumber());
       studyInformation.accessionNumber = std::strtol(studyModule->AccessionNumber().c_str(), NULL, 0);
@@ -227,7 +229,8 @@ namespace GeToIsmrmrd {
       measurementInformation.seriesInstanceUIDRoot = m_anonString;
     } else {
       // measurementInformation.measurementID = lxDownloadDataPtr->SeriesNumber();
-      measurementInformation.seriesDate = convert_date(seriesModule->Date()).c_str();
+      if (!seriesModule->Date().empty())
+        measurementInformation.seriesDate = convert_date(seriesModule->Date()).c_str();
       measurementInformation.seriesTime = convert_time(seriesModule->Time()).c_str();
       measurementInformation.protocolName = seriesModule->ProtocolName().c_str();
       measurementInformation.seriesDescription = seriesModule->SeriesDescription().c_str();
