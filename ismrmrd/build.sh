@@ -1,6 +1,7 @@
 #!/bin/bash
 
 git clone https://github.com/ismrmrd/ismrmrd.git
+sed -i 's/ismrmrd SHARED/ismrmrd STATIC/g' ismrmrd/CMakeLists.txt
 mkdir ismrmrd/build
 
 CMD="export HDF5_ROOT=/usr/local/orchestra/include/recon/3p/Linux/hdf5-1.8.12_dev_linux64 &&

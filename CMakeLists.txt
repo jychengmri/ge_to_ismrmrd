@@ -12,7 +12,7 @@ endif (NOT CMAKE_BUILD_TYPE)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 set(OX_INSTALL_DIRECTORY "/usr/local/orchestra" CACHE PATH "Install directory of the GE Orchestra SDK")
-set(ENV{ISMRMRD_HOME} "~/ismrmrd" CACHE PATH "Install directory of ISMRMRD")
+set(ENV{ISMRMRD_HOME} "./ismrmrd" CACHE PATH "Install directory of ISMRMRD")
 set(LARGE_LIBRARY_TYPE STATIC)
 
 set(ENV{HDF5_ROOT} ${OX_INSTALL_DIRECTORY}/include/recon/3p/Linux/hdf5-1.8.12_dev_linux64)
