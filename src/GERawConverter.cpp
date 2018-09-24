@@ -320,7 +320,7 @@ namespace GeToIsmrmrd {
       encoding.reconSpace.fieldOfView_mm.z = acquiredZRes * pixelSizeZ;
     else
       encoding.reconSpace.fieldOfView_mm.z = pixelSizeZ;
-    encoding.trajectory = "cartesian"; //ISMRMRD::TrajectoryType::CARTESIAN;
+    encoding.trajectory = ISMRMRD::TrajectoryType::CARTESIAN;
     encoding.encodingLimits.kspace_encoding_step_1 = ISMRMRD::Limit(0, acquiredYRes - 1, acquiredYRes / 2);
     if (is3D) {
       encoding.encodingLimits.kspace_encoding_step_2 = ISMRMRD::Limit(0, acquiredZRes - 1, acquiredZRes / 2);
